@@ -236,6 +236,20 @@ export default function App() {
     setSnackbarOpen(false);
   };
 
+  // Handle adding rows to the database while updating state
+  const handleAddRow = () => {
+    const newRow = {
+      FullName: "",
+      University: "",
+      JoinYear: "",
+      SubField: [],
+      Bachelors: "",
+      Doctorate: "",
+    };
+    setData(prevData => [...prevData, newRow]);
+    setFilteredData(prevFilteredData => [...prevFilteredData, newRow]);
+  };
+
   return (
     <div className="App">
       {/* Render filter text fields for each column */}
@@ -257,6 +271,13 @@ export default function App() {
       <div style={{ padding: "10px" }}>
         <Button variant="contained" color="primary" onClick={handleDeleteRow}>
           Delete Row
+        </Button>
+      </div>
+
+      {/* Button to add a new row */}
+      <div style={{ padding: "10px" }}>
+        <Button variant="contained" color="primary" onClick={handleAddRow}>
+          Add Row
         </Button>
       </div>
 
