@@ -27,18 +27,29 @@ const optionsList = [
 ];
 
 // Define custom column widths for each column
-const columnWidths: { [key: string]: number } = {
-  FullName: 200,
-  University: 250,
-  JoinYear: 100,
-  SubField: 250,
-  Bachelors: 350,
-  Doctorate: 300,
+const columnWidths: { [key: string]: string } = {
+  FullName: '15%',
+  University: '20%',
+  JoinYear: '5%',
+  SubField: '20%',
+  Bachelors: '20%',
+  Doctorate: '20%',
 };
+
+const columnNames = ["FullName", "University", "JoinYear", "SubField", "Bachelors", "Doctorate"];
 
 // Custom alert component for displaying messages in the snackbar
 const Alert = React.forwardRef<HTMLDivElement, AlertProps>(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+});
+
+const params = new URLSearchParams(window.location.search);
+const initialFilters: { [key: string]: string } = {};
+columnNames.forEach(name => {
+  const value = params.get(name);
+  if (value) {
+    initialFilters[name] = value;
+  }
 });
 
 // Main App component
@@ -47,7 +58,7 @@ export default function App() {
   const [columns, setColumns] = useState<GridColumn[]>([]);
   const [data, setData] = useState<Professor[]>([]);
   const [filteredData, setFilteredData] = useState<Professor[]>([]);
-  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>(initialFilters);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
@@ -57,6 +68,17 @@ export default function App() {
     columns: CompactSelection.empty(),
   });
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [gridWidth, setGridWidth] = useState(window.innerWidth);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setGridWidth(window.innerWidth);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
 
   // Fetch and parse CSV data when the component loads
   useEffect(() => {
@@ -72,11 +94,22 @@ export default function App() {
             const parsedData = results.data.filter(row => Object.values(row).some(value => value !== null && value !== ""));
 
             const gridColumns: GridColumn[] = Object.keys(parsedData[0] || {})
-              .filter((key) => key !== "UniqueId") 
-              .map((key) => ({
-                title: key,
-                width: columnWidths[key] || 150,
-              }));
+              .filter((key) => key !== "UniqueId")
+              .map((key) => {
+                let width = 150; 
+                const colWidth = columnWidths[key];
+                if (typeof colWidth === 'string' && colWidth.endsWith('%')) {
+                  const percent = parseFloat(colWidth) / 100;
+                  width = gridWidth * percent;
+                } 
+                else if (typeof colWidth === 'number') {
+                  width = colWidth;
+                }
+                return {
+                  title: key,
+                  width: width,
+                };
+            });
 
             setColumns(gridColumns);
             setData(parsedData);
@@ -293,8 +326,7 @@ export default function App() {
           onGridSelectionChange={onGridSelectionChange}
           gridSelection={gridSelection}
           showSearch={false} 
-          width="200vw"
-          height="80vh"
+          width={gridWidth}
         />
       )}
 
