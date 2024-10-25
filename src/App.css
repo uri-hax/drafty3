@@ -1,7 +1,32 @@
-.App {
-  text-align: center;
+/* Reset styles to avoid unexpected behavior */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%; 
+  overflow: hidden; 
 }
 
+/* Main App container */
+.App {
+  display: flex;
+  flex-direction: column;
+  height: 100vh; 
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* Header with optional content (shrinkable) */
+.App-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+  flex-shrink: 0; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Logo styling */
 .App-logo {
   height: 40vmin;
   pointer-events: none;
@@ -13,21 +38,6 @@
   }
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);
@@ -37,32 +47,65 @@
   }
 }
 
-/* Force the bubble container to wrap and stay within the cell */
-[data-kind="bubble"] {
-  display: flex;             /* Flexbox to handle bubble layout */
-  flex-wrap: wrap;           /* Ensure bubbles wrap onto the next line */
-  align-items: flex-start;   /* Align bubbles at the top */
-  max-width: 100%;           /* Prevent overflow from going beyond the cell */
-  overflow: hidden;          /* Prevent content from spilling over the edges */
-  box-sizing: border-box;    /* Ensure padding is included in the width calculation */
-  padding: 5px;              /* Optional padding for appearance */
+/* Link color */
+.App-link {
+  color: #61dafb;
 }
 
-/* Style the individual bubbles */
+/* Data grid container that fills remaining space and scrolls if necessary */
+.grid-container {
+  flex: 1; /* Take up remaining space */
+  overflow: auto; /* Make this section scrollable */
+  background-color: white; /* Ensure proper contrast */
+  display: flex; /* Ensure the grid takes full space */
+  justify-content: center;
+  align-items: stretch; /* Prevent grid shrinking */
+}
+
+/* Data grid cell styling */
+.data-grid-cell {
+  height: 100%; /* Ensure grid content stretches to fill the container */
+  width: 100%; /* Take full width of the parent container */
+  background-color: white !important; /* Background color for better contrast */
+  box-sizing: border-box; /* Ensure padding fits correctly */
+  overflow: auto; /* Make the grid content scrollable */
+}
+
+/* Force bubble content to wrap and align properly */
+[data-kind="bubble"] {
+  display: flex; /* Flexbox to handle bubble layout */
+  flex-wrap: wrap; /* Ensure bubbles wrap to the next line if needed */
+  align-items: flex-start; /* Align bubbles at the top */
+  max-width: 100%; /* Prevent overflow */
+  overflow: hidden; /* Hide overflow content */
+  padding: 5px; /* Optional padding for appearance */
+  box-sizing: border-box; /* Include padding in width calculation */
+}
+
+/* Style individual bubbles */
 [data-kind="bubble"] .bubble {
   background-color: #E0E0E0;
   border-radius: 12px;
   padding: 5px 10px;
-  margin-right: 5px;         /* Add space between bubbles */
-  margin-bottom: 5px;        /* Space between wrapped lines */
-  white-space: nowrap;       /* Ensure bubble text stays on one line */
-  word-wrap: break-word;     /* Break long words if necessary */
-  box-sizing: border-box;    /* Ensure the bubbles respect the container width */
+  margin-right: 5px; /* Space between bubbles */
+  margin-bottom: 5px; /* Space between wrapped lines */
+  white-space: nowrap; /* Keep text on one line */
+  word-wrap: break-word; /* Break long words if necessary */
+  box-sizing: border-box; /* Respect container width */
 }
 
-/* Ensure the grid cell grows vertically to fit more bubbles */
+/* Ensure grid cells grow vertically to fit content */
 .grid-cell {
-  white-space: normal;       /* Allow wrapping in the grid cell */
-  overflow: hidden;          /* Hide any overflow */
-  box-sizing: border-box;    /* Ensure proper width handling */
+  white-space: normal; /* Allow text to wrap inside the cell */
+  overflow: hidden; /* Hide any overflow content */
+  box-sizing: border-box; /* Ensure padding fits correctly */
+}
+
+/* Ensure text inside grid cells is visible */
+.data-grid-cell .gdg-cell-content {
+  color: black !important; /* Force text color to black */
+}
+
+.data-grid-cell .gdg-cell-content span {
+  color: black !important; /* Force span content to black */
 }

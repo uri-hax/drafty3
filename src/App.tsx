@@ -1,7 +1,17 @@
 import './App.css';
 import "@glideapps/glide-data-grid/dist/index.css";
 import React, { useState, useEffect } from 'react';
-import { DataEditor, GridCell, GridCellKind, GridColumn, Item, EditableGridCell, BubbleCell, GridSelection, CompactSelection } from "@glideapps/glide-data-grid";
+import {
+  DataEditor,
+  GridCell,
+  GridCellKind,
+  GridColumn,
+  Item,
+  EditableGridCell,
+  BubbleCell,
+  GridSelection,
+  CompactSelection,
+} from "@glideapps/glide-data-grid";
 import Papa, { ParseResult } from 'papaparse';
 import { Modal, Button, Checkbox, TextField, Snackbar } from '@mui/material';
 import MuiAlert, { AlertProps } from '@mui/material/Alert';
@@ -16,6 +26,22 @@ interface Professor {
   Doctorate: string;
 }
 
+const staticData: Professor[] = [
+  {
+    FullName: "John Doe",
+    University: "Example University",
+    JoinYear: "2020",
+    SubField: ["Artificial Intelligence"],
+    Bachelors: "BSc Computer Science",
+    Doctorate: "PhD Artificial Intelligence",
+  },
+  // Add more sample data if needed
+];
+
+// List of valid keys and corresponding TypeScript type
+const validKeys = ["FullName", "University", "JoinYear", "SubField", "Bachelors", "Doctorate"] as const;
+type ProfessorKey = typeof validKeys[number];
+
 // List of possible options for the SubField filter
 const optionsList = [
   "Artificial Intelligence",
@@ -27,7 +53,7 @@ const optionsList = [
 ];
 
 // Define custom column widths for each column
-const columnWidths: { [key: string]: string } = {
+const columnWidths: { [key in ProfessorKey]: string } = {
   FullName: '15%',
   University: '20%',
   JoinYear: '5%',
@@ -36,16 +62,15 @@ const columnWidths: { [key: string]: string } = {
   Doctorate: '20%',
 };
 
-const columnNames = ["FullName", "University", "JoinYear", "SubField", "Bachelors", "Doctorate"];
-
 // Custom alert component for displaying messages in the snackbar
 const Alert = React.forwardRef<HTMLDivElement, AlertProps>(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
 });
 
+// Get initial filters from URL parameters
 const params = new URLSearchParams(window.location.search);
-const initialFilters: { [key: string]: string } = {};
-columnNames.forEach(name => {
+const initialFilters: { [key in ProfessorKey]?: string } = {};
+validKeys.forEach((name) => {
   const value = params.get(name);
   if (value) {
     initialFilters[name] = value;
@@ -58,7 +83,7 @@ export default function App() {
   const [columns, setColumns] = useState<GridColumn[]>([]);
   const [data, setData] = useState<Professor[]>([]);
   const [filteredData, setFilteredData] = useState<Professor[]>([]);
-  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>(initialFilters);
+  const [columnFilters, setColumnFilters] = useState<{ [key in ProfessorKey]?: string }>(initialFilters);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
@@ -90,25 +115,37 @@ export default function App() {
         // Parse the CSV data and set the columns and data for the grid
         Papa.parse(csvData, {
           header: true,
-          complete: (results: ParseResult<Professor>) => {
-            const parsedData = results.data.filter(row => Object.values(row).some(value => value !== null && value !== ""));
-
-            const gridColumns: GridColumn[] = Object.keys(parsedData[0] || {})
-              .filter((key) => key !== "UniqueId")
-              .map((key) => {
-                let width = 150; 
-                const colWidth = columnWidths[key];
-                if (typeof colWidth === 'string' && colWidth.endsWith('%')) {
-                  const percent = parseFloat(colWidth) / 100;
-                  width = gridWidth * percent;
-                } 
-                else if (typeof colWidth === 'number') {
-                  width = colWidth;
-                }
-                return {
-                  title: key,
-                  width: width,
+          transformHeader: (header) => header.trim(),
+          complete: (results: ParseResult<{ [key: string]: string }>) => {
+            const parsedData = results.data
+              .filter((row) => Object.values(row).some((value) => value !== null && value !== ""))
+              .map((row) => {
+                const professor: Professor = {
+                  FullName: row["FullName"] || "",
+                  University: row["University"] || "",
+                  JoinYear: row["JoinYear"] || "",
+                  SubField: row["SubField"] ? row["SubField"].split(',').map((s) => s.trim()) : [],
+                  Bachelors: row["Bachelors"] || "",
+                  Doctorate: row["Doctorate"] || "",
                 };
+                return professor;
+              });
+          
+            console.log("Parsed Data:", parsedData); // Add this line
+
+            // Create grid columns using validKeys
+            const gridColumns: GridColumn[] = validKeys.map((key) => {
+              let width = 150;
+              const colWidth = columnWidths[key];
+              if (typeof colWidth === 'string' && colWidth.endsWith('%')) {
+                const percent = parseFloat(colWidth) / 100;
+                width = gridWidth * percent;
+              }
+              return {
+                id: key,
+                title: key,
+                width: width,
+              };
             });
 
             setColumns(gridColumns);
@@ -123,18 +160,41 @@ export default function App() {
     };
 
     fetchCsvData();
-  }, []);
+  }, [gridWidth]);
 
+/*
+// Set static data when the component loads
+useEffect(() => {
+  // Set columns based on validKeys and columnWidths
+  const gridColumns: GridColumn[] = validKeys.map((key) => {
+    let width = 150;
+    const colWidth = columnWidths[key];
+    if (typeof colWidth === 'string' && colWidth.endsWith('%')) {
+      const percent = parseFloat(colWidth) / 100;
+      width = gridWidth * percent;
+    }
+    return {
+      id: key,
+      title: key,
+      width: width,
+    };
+  });
+
+  setColumns(gridColumns);
+  setData(staticData);
+  setFilteredData(staticData);
+}, [gridWidth]);
+*/
   // Apply filters to the data when filters or data change
   useEffect(() => {
     const applyFilters = () => {
       const filtered = data.filter((row) => {
         return columns.every((col) => {
-          const colTitle = col.title;
-          const filterValue = columnFilters[colTitle];
+          const colKey = col.id as ProfessorKey;
+          const filterValue = columnFilters[colKey];
           if (!filterValue) return true;
 
-          const cellValue = row[colTitle as keyof Professor];
+          const cellValue = row[colKey];
           return cellValue?.toString().toLowerCase().includes(filterValue.toLowerCase());
         });
       });
@@ -145,29 +205,28 @@ export default function App() {
   }, [columnFilters, data, columns]);
 
   // Update the column filter values
-  const handleColumnFilterChange = (colTitle: string, value: string) => {
+  const handleColumnFilterChange = (colKey: ProfessorKey, value: string) => {
     setColumnFilters((prevFilters) => ({
       ...prevFilters,
-      [colTitle]: value,
+      [colKey]: value,
     }));
   };
 
   // Generate data cells for the grid, including handling bubble cells for the SubField column
   const getData = ([col, row]: Item): GridCell => {
-    const cellData = filteredData[row]?.[columns[col].title as keyof Professor];
+    const colKey = columns[col].id as ProfessorKey;
+    const cellData = filteredData[row]?.[colKey];
 
-    if (columns[col].title === "SubField") {
-      const bubbleData = typeof cellData === 'string' ? cellData.split(',').map(item => item.trim()) : cellData;
-
+    if (colKey === "SubField") {
+      const bubbleData = Array.isArray(cellData) ? cellData : [];
       return {
         kind: GridCellKind.Bubble,
-        data: Array.isArray(bubbleData) ? bubbleData : [],
+        data: bubbleData,
         allowOverlay: true,
       };
     }
 
-    const textData = Array.isArray(cellData) ? cellData.join(', ') : cellData || "";
-
+    const textData = cellData !== undefined && cellData !== null ? String(cellData) : "";
     return {
       kind: GridCellKind.Text,
       data: textData,
@@ -184,8 +243,9 @@ export default function App() {
   // Handle activating a cell for editing, especially for SubField bubble cells
   const onCellActivated = (cell: Item) => {
     const [col, row] = cell;
+    const colKey = columns[col].id as ProfessorKey;
 
-    if (columns[col].title === "SubField") {
+    if (colKey === "SubField") {
       setEditingCell({ row, col });
       const actualRowIndex = data.indexOf(filteredData[row]);
       setSelectedOptions(Array.isArray(data[actualRowIndex]?.SubField) ? data[actualRowIndex].SubField : []);
@@ -196,17 +256,20 @@ export default function App() {
   // Handle cell edits and update the data accordingly
   const onCellEdited = ([col, row]: Item, newValue: EditableGridCell | BubbleCell) => {
     const updatedData = [...data];
-    const key = columns[col].title as keyof Professor;
-
+    const key = columns[col].id as ProfessorKey;
     const actualRowIndex = data.indexOf(filteredData[row]);
 
-    if (newValue.kind === GridCellKind.Text) {
-      if (typeof newValue.data === 'string' && key !== 'SubField') {
-        updatedData[actualRowIndex][key] = newValue.data as Professor[typeof key];
+    if (key === "SubField") {
+      if (newValue.kind === GridCellKind.Bubble) {
+        updatedData[actualRowIndex]["SubField"] = newValue.data as string[];
+      } else {
+        console.error("Expected BubbleCell for SubField");
       }
-    } else if (newValue.kind === GridCellKind.Bubble) {
-      if (Array.isArray(newValue.data) && key === 'SubField') {
-        updatedData[actualRowIndex][key] = newValue.data as string[] as Professor[typeof key];
+    } else {
+      if (newValue.kind === GridCellKind.Text) {
+        updatedData[actualRowIndex][key] = newValue.data as string;
+      } else {
+        console.error(`Expected TextCell for ${key}`);
       }
     }
 
@@ -239,10 +302,10 @@ export default function App() {
   const handleDeleteRow = () => {
     if (gridSelection.rows.length > 0) {
       const selectedRowIndices = gridSelection.rows.toArray();
-      const selectedRows = selectedRowIndices.map(index => filteredData[index]);
+      const selectedRows = selectedRowIndices.map((index) => filteredData[index]);
 
-      setData(prevData => prevData.filter(item => !selectedRows.includes(item)));
-      setFilteredData(prevFilteredData => prevFilteredData.filter(item => !selectedRows.includes(item)));
+      setData((prevData) => prevData.filter((item) => !selectedRows.includes(item)));
+      setFilteredData((prevFilteredData) => prevFilteredData.filter((item) => !selectedRows.includes(item)));
       setGridSelection({
         current: undefined,
         rows: CompactSelection.empty(),
@@ -252,8 +315,8 @@ export default function App() {
       const { cell } = gridSelection.current;
       const [, row] = cell;
       const rowData = filteredData[row];
-      setData(prevData => prevData.filter(item => item !== rowData));
-      setFilteredData(prevFilteredData => prevFilteredData.filter(item => item !== rowData));
+      setData((prevData) => prevData.filter((item) => item !== rowData));
+      setFilteredData((prevFilteredData) => prevFilteredData.filter((item) => item !== rowData));
       setGridSelection({
         current: undefined,
         rows: CompactSelection.empty(),
@@ -271,7 +334,7 @@ export default function App() {
 
   // Handle adding rows to the database while updating state
   const handleAddRow = () => {
-    const newRow = {
+    const newRow: Professor = {
       FullName: "",
       University: "",
       JoinYear: "",
@@ -279,25 +342,35 @@ export default function App() {
       Bachelors: "",
       Doctorate: "",
     };
-    setData(prevData => [...prevData, newRow]);
-    setFilteredData(prevFilteredData => [...prevFilteredData, newRow]);
+    setData((prevData) => [...prevData, newRow]);
+    setFilteredData((prevFilteredData) => [...prevFilteredData, newRow]);
   };
 
   return (
     <div className="App">
       {/* Render filter text fields for each column */}
-      <div style={{ display: "flex", justifyContent: "space-evenly", padding: "10px", flexWrap: "wrap" }}>
-        {columns.map((col) => (
-          <TextField
-            key={col.title}
-            label={`Search ${col.title}`}
-            variant="outlined"
-            size="small"
-            value={columnFilters[col.title] || ""}
-            onChange={(e) => handleColumnFilterChange(col.title, e.target.value)}
-            style={{ marginBottom: "20px", width: columnWidths[col.title] }}
-          />
-        ))}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-evenly",
+          padding: "10px",
+          flexWrap: "wrap",
+        }}
+      >
+        {columns.map((col) => {
+          const colKey = col.id as ProfessorKey;
+          return (
+            <TextField
+              key={colKey}
+              label={`Search ${col.title}`}
+              variant="outlined"
+              size="small"
+              value={columnFilters[colKey] || ""}
+              onChange={(e) => handleColumnFilterChange(colKey, e.target.value)}
+              style={{ marginBottom: "20px", width: columnWidths[colKey] }}
+            />
+          );
+        })}
       </div>
 
       {/* Button to delete selected rows or cells */}
@@ -315,7 +388,7 @@ export default function App() {
       </div>
 
       {/* Render the DataEditor with filtered data */}
-      {columns.length > 0 && filteredData.length > 0 && (
+      <div className="grid-container">
         <DataEditor
           columns={columns}
           getCellContent={getData}
@@ -325,22 +398,37 @@ export default function App() {
           onCellActivated={onCellActivated}
           onGridSelectionChange={onGridSelectionChange}
           gridSelection={gridSelection}
-          showSearch={false} 
+          showSearch={false}
           width={gridWidth}
         />
-      )}
+      </div>
 
       {/* Modal for selecting SubField options */}
       <Modal open={isOverlayVisible} onClose={() => setIsOverlayVisible(false)}>
-        <div className="overlay-content" style={{ background: "white", padding: "20px", borderRadius: "10px", margin: "50px auto", width: "300px" }}>
+        <div
+          className="overlay-content"
+          style={{
+            background: "white",
+            padding: "20px",
+            borderRadius: "10px",
+            margin: "50px auto",
+            width: "300px",
+          }}
+        >
           <h3>Select Options</h3>
           {optionsList.map((option) => (
             <div key={option}>
-              <Checkbox value={option} checked={selectedOptions.includes(option)} onChange={handleOptionChange} />
+              <Checkbox
+                value={option}
+                checked={selectedOptions.includes(option)}
+                onChange={handleOptionChange}
+              />
               <label>{option}</label>
             </div>
           ))}
-          <Button variant="contained" color="primary" onClick={handleSaveOptions}>Save</Button>
+          <Button variant="contained" color="primary" onClick={handleSaveOptions}>
+            Save
+          </Button>
         </div>
       </Modal>
 
