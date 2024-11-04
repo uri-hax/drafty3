@@ -13,8 +13,10 @@ import {
   CompactSelection,
 } from "@glideapps/glide-data-grid";
 import Papa, { ParseResult } from 'papaparse';
-import { Modal, Button, Checkbox, TextField, Snackbar } from '@mui/material';
+import { Modal, Button, TextField, Snackbar, Autocomplete } from '@mui/material';
 import MuiAlert, { AlertProps } from '@mui/material/Alert';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import IconButton from '@mui/material/IconButton';
 
 // Define the structure of the data for each professor
 interface Professor {
@@ -25,18 +27,6 @@ interface Professor {
   Bachelors: string;
   Doctorate: string;
 }
-
-const staticData: Professor[] = [
-  {
-    FullName: "John Doe",
-    University: "Example University",
-    JoinYear: "2020",
-    SubField: ["Artificial Intelligence"],
-    Bachelors: "BSc Computer Science",
-    Doctorate: "PhD Artificial Intelligence",
-  },
-  // Add more sample data if needed
-];
 
 // List of valid keys and corresponding TypeScript type
 const validKeys = ["FullName", "University", "JoinYear", "SubField", "Bachelors", "Doctorate"] as const;
@@ -94,6 +84,25 @@ export default function App() {
   });
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [gridWidth, setGridWidth] = useState(window.innerWidth);
+  const [isAddingRow, setIsAddingRow] = useState(false);
+
+  // State for new row data
+  const [newRowData, setNewRowData] = useState<Professor>({
+    FullName: "",
+    University: "",
+    JoinYear: "",
+    SubField: [],
+    Bachelors: "",
+    Doctorate: "",
+  });
+
+  const allFieldsFilled =
+    newRowData.FullName.trim() !== "" &&
+    newRowData.University.trim() !== "" &&
+    newRowData.JoinYear.trim() !== "" &&
+    newRowData.SubField.length > 0 &&
+    newRowData.Bachelors.trim() !== "" &&
+    newRowData.Doctorate.trim() !== "";
 
   useEffect(() => {
     const handleResize = () => {
@@ -130,8 +139,6 @@ export default function App() {
                 };
                 return professor;
               });
-          
-            console.log("Parsed Data:", parsedData); // Add this line
 
             // Create grid columns using validKeys
             const gridColumns: GridColumn[] = validKeys.map((key) => {
@@ -162,29 +169,6 @@ export default function App() {
     fetchCsvData();
   }, [gridWidth]);
 
-/*
-// Set static data when the component loads
-useEffect(() => {
-  // Set columns based on validKeys and columnWidths
-  const gridColumns: GridColumn[] = validKeys.map((key) => {
-    let width = 150;
-    const colWidth = columnWidths[key];
-    if (typeof colWidth === 'string' && colWidth.endsWith('%')) {
-      const percent = parseFloat(colWidth) / 100;
-      width = gridWidth * percent;
-    }
-    return {
-      id: key,
-      title: key,
-      width: width,
-    };
-  });
-
-  setColumns(gridColumns);
-  setData(staticData);
-  setFilteredData(staticData);
-}, [gridWidth]);
-*/
   // Apply filters to the data when filters or data change
   useEffect(() => {
     const applyFilters = () => {
@@ -195,6 +179,11 @@ useEffect(() => {
           if (!filterValue) return true;
 
           const cellValue = row[colKey];
+          if (Array.isArray(cellValue)) {
+            return cellValue.some((val) =>
+              val.toString().toLowerCase().includes(filterValue.toLowerCase())
+            );
+          }
           return cellValue?.toString().toLowerCase().includes(filterValue.toLowerCase());
         });
       });
@@ -290,14 +279,6 @@ useEffect(() => {
     }
   };
 
-  // Handle changes to checkbox options for the SubField column
-  const handleOptionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    setSelectedOptions((prev) =>
-      event.target.checked ? [...prev, value] : prev.filter((opt) => opt !== value)
-    );
-  };
-
   // Delete the selected rows or cell and update the data
   const handleDeleteRow = () => {
     if (gridSelection.rows.length > 0) {
@@ -332,22 +313,29 @@ useEffect(() => {
     setSnackbarOpen(false);
   };
 
-  // Handle adding rows to the database while updating state
-  const handleAddRow = () => {
-    const newRow: Professor = {
+  // Modify the handleAddRow function
+  const handleAddRowConfirm = () => {
+    if (!allFieldsFilled) return; // Ensure all fields are filled
+
+    setData((prevData) => [...prevData, newRowData]);
+    setFilteredData((prevFilteredData) => [...prevFilteredData, newRowData]);
+
+    // Reset newRowData to empty values
+    setNewRowData({
       FullName: "",
       University: "",
       JoinYear: "",
       SubField: [],
       Bachelors: "",
       Doctorate: "",
-    };
-    setData((prevData) => [...prevData, newRow]);
-    setFilteredData((prevFilteredData) => [...prevFilteredData, newRow]);
+    });
+
+    // Hide the sticky footer
+    setIsAddingRow(false);
   };
 
   return (
-    <div className="App">
+    <div className="App" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       {/* Render filter text fields for each column */}
       <div
         style={{
@@ -378,17 +366,20 @@ useEffect(() => {
         <Button variant="contained" color="primary" onClick={handleDeleteRow}>
           Delete Row
         </Button>
-      </div>
 
-      {/* Button to add a new row */}
-      <div style={{ padding: "10px" }}>
-        <Button variant="contained" color="primary" onClick={handleAddRow}>
+        {/* Button to add a new row */}
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => setIsAddingRow(true)}
+          style={{ marginLeft: "10px" }}
+        >
           Add Row
         </Button>
       </div>
 
       {/* Render the DataEditor with filtered data */}
-      <div className="grid-container">
+      <div className="grid-container" style={{ flexGrow: 1 }}>
         <DataEditor
           columns={columns}
           getCellContent={getData}
@@ -400,10 +391,11 @@ useEffect(() => {
           gridSelection={gridSelection}
           showSearch={false}
           width={gridWidth}
+          height="100%"
         />
       </div>
 
-      {/* Modal for selecting SubField options */}
+      {/* Modal for selecting SubField options in the grid cell editor */}
       <Modal open={isOverlayVisible} onClose={() => setIsOverlayVisible(false)}>
         <div
           className="overlay-content"
@@ -412,20 +404,27 @@ useEffect(() => {
             padding: "20px",
             borderRadius: "10px",
             margin: "50px auto",
-            width: "300px",
+            width: "400px",
           }}
         >
-          <h3>Select Options</h3>
-          {optionsList.map((option) => (
-            <div key={option}>
-              <Checkbox
-                value={option}
-                checked={selectedOptions.includes(option)}
-                onChange={handleOptionChange}
+          <h3>Select SubFields</h3>
+          <Autocomplete
+            multiple
+            options={optionsList}
+            getOptionLabel={(option) => option}
+            value={selectedOptions}
+            onChange={(event, newValue) => {
+              setSelectedOptions(newValue);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                placeholder="Select SubFields"
               />
-              <label>{option}</label>
-            </div>
-          ))}
+            )}
+            style={{ marginBottom: "20px" }}
+          />
           <Button variant="contained" color="primary" onClick={handleSaveOptions}>
             Save
           </Button>
@@ -438,6 +437,110 @@ useEffect(() => {
           Please select a cell or row first.
         </Alert>
       </Snackbar>
+
+      {/* Conditionally render the Sticky Footer for Adding New Row */}
+      {isAddingRow && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: "white",
+            padding: "10px",
+            display: "flex",
+            alignItems: "center",
+            zIndex: 1000,
+            borderTop: "1px solid #ccc",
+            flexWrap: "nowrap",
+            overflowX: "auto",
+          }}
+        >
+          <div style={{ display: "flex", flex: 1, alignItems: "center", overflowX: "auto" }}>
+            {validKeys.map((key) => {
+              if (key === "SubField") {
+                // Render Autocomplete for SubField
+                return (
+                  <Autocomplete
+                    key={key}
+                    multiple
+                    options={optionsList}
+                    getOptionLabel={(option) => option}
+                    value={newRowData.SubField}
+                    onChange={(event, newValue) => {
+                      setNewRowData((prevData) => ({
+                        ...prevData,
+                        SubField: newValue,
+                      }));
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        variant="outlined"
+                        label="SubField"
+                        placeholder="Select SubFields"
+                        size="small"
+                        style={{ margin: "5px", minWidth: "150px" }}
+                      />
+                    )}
+                    style={{ margin: "5px", minWidth: "150px" }}
+                  />
+                );
+              } else {
+                return (
+                  <TextField
+                    key={key}
+                    label={key}
+                    variant="outlined"
+                    size="small"
+                    value={newRowData[key] || ""}
+                    onChange={(e) =>
+                      setNewRowData((prevData) => ({
+                        ...prevData,
+                        [key]: e.target.value,
+                      }))
+                    }
+                    style={{ margin: "5px", minWidth: "150px" }}
+                  />
+                );
+              }
+            })}
+          </div>
+
+          {/* Buttons */}
+          <div style={{ display: "flex", alignItems: "center", marginLeft: "auto" }}>
+            {/* Add Button */}
+            <IconButton
+              color="primary"
+              onClick={handleAddRowConfirm}
+              disabled={!allFieldsFilled}
+            >
+              <CheckCircleIcon />
+            </IconButton>
+
+            {/* Cancel Button */}
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                setIsAddingRow(false);
+                // Reset newRowData to empty values
+                setNewRowData({
+                  FullName: "",
+                  University: "",
+                  JoinYear: "",
+                  SubField: [],
+                  Bachelors: "",
+                  Doctorate: "",
+                });
+              }}
+              style={{ marginLeft: "10px" }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
