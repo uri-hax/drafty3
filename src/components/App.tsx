@@ -341,6 +341,12 @@ useEffect(() => {
     setFilteredData((prevFilteredData) => [...prevFilteredData, newRow]);
   };
 
+  // Handle viewing edit history
+  const handleEditHistory = () => {
+    // Navigate to the edit history page
+    window.location.href = "/edit-history";
+  };
+  
   return (
     <div className="App">
       {/* Render filter text fields for each column */}
@@ -379,6 +385,12 @@ useEffect(() => {
       <div style={{ padding: "10px" }}>
         <Button variant="contained" color="primary" onClick={handleAddRow}>
           Add Row
+        </Button>
+      </div>
+      {/* Button to view edit history*/}
+      <div style={{ padding: "10px" }}>
+        <Button variant="contained" color="primary" onClick={handleEditHistory}>
+          Edit History
         </Button>
       </div>
 
