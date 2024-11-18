@@ -1,66 +1,31 @@
-import '/public/App.css';
+// components/App.tsx
+import '../../public/App.css';
 import "@glideapps/glide-data-grid/dist/index.css";
 import React, { useState, useEffect } from 'react';
 import {
   DataEditor,
+  type GridCell,
   GridCellKind,
+  type GridColumn,
+  type Item,
+  type EditableGridCell,
+  type BubbleCell,
+  type GridSelection,
   CompactSelection,
 } from "@glideapps/glide-data-grid";
-import Papa, { type ParseResult } from 'papaparse';
-import type { GridCell, GridColumn, Item, EditableGridCell, BubbleCell, GridSelection, } from '@glideapps/glide-data-grid';
-import { Modal, Button, Checkbox, TextField, Snackbar } from '@mui/material';
-import MuiAlert, { type AlertProps } from '@mui/material/Alert';
+import { Snackbar, Button, Modal, TextField, Autocomplete } from '@mui/material';
 
-// Define the structure of the data for each professor
-interface Professor {
-  FullName: string;
-  University: string;
-  JoinYear: string;
-  SubField: string[];
-  Bachelors: string;
-  Doctorate: string;
-}
+import { validKeys, type Professor, type ProfessorKey } from '../interfaces/Professor';
+import { columnWidths, optionsList } from '../utils/constants';
+import { fetchCsvData } from '../utils/csvParser';
+import useWindowWidth from '../hooks/useWindow';
 
-const staticData: Professor[] = [
-  {
-    FullName: "John Doe",
-    University: "Example University",
-    JoinYear: "2020",
-    SubField: ["Artificial Intelligence"],
-    Bachelors: "BSc Computer Science",
-    Doctorate: "PhD Artificial Intelligence",
-  },
-  // Add more sample data if needed
-];
-
-// List of valid keys and corresponding TypeScript type
-const validKeys = ["FullName", "University", "JoinYear", "SubField", "Bachelors", "Doctorate"] as const;
-type ProfessorKey = typeof validKeys[number];
-
-// List of possible options for the SubField filter
-const optionsList = [
-  "Artificial Intelligence",
-  "Software Engineering",
-  "Computer Security",
-  "Databases",
-  "Cryptography",
-  "Programming Languages",
-];
-
-// Define custom column widths for each column
-const columnWidths: { [key in ProfessorKey]: string } = {
-  FullName: '15%',
-  University: '20%',
-  JoinYear: '5%',
-  SubField: '20%',
-  Bachelors: '20%',
-  Doctorate: '20%',
-};
-
-// Custom alert component for displaying messages in the snackbar
-const Alert = React.forwardRef<HTMLDivElement, AlertProps>(function Alert(props, ref) {
-  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
-});
+import Alert from './Alerts';
+import FilterBar from './Filter';
+import ActionButtons from './ActionButtons';
+import ProfessorGrid from './ProfessorGrid';
+import SubFieldModal from './SubFieldModal';
+import AddRowFooter from './AddRowFooter';
 
 // Get initial filters from URL parameters
 const params = new URLSearchParams(window.location.search);
@@ -72,14 +37,13 @@ validKeys.forEach((name) => {
   }
 });
 
-// Main App component
 export default function App() {
   // State variables for managing columns, data, filters, and UI elements
   const [columns, setColumns] = useState<GridColumn[]>([]);
   const [data, setData] = useState<Professor[]>([]);
   const [filteredData, setFilteredData] = useState<Professor[]>([]);
   const [columnFilters, setColumnFilters] = useState<{ [key in ProfessorKey]?: string }>(initialFilters);
-  const [isOverlayVisible, setIsOverlayVisible] = useState(false);
+  const [isOverlayVisible, setIsOverlayVisible] = useState<boolean>(false);
   const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [gridSelection, setGridSelection] = useState<GridSelection>({
@@ -87,99 +51,45 @@ export default function App() {
     rows: CompactSelection.empty(),
     columns: CompactSelection.empty(),
   });
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [gridWidth, setGridWidth] = useState(window.innerWidth);
+  const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
+  const [isAddingRow, setIsAddingRow] = useState<boolean>(false);
 
-  useEffect(() => {
-    const handleResize = () => {
-      setGridWidth(window.innerWidth);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
+  // Use custom hook to get window width
+  const gridWidth = useWindowWidth();
+
+  // State for new row data
+  const [newRowData, setNewRowData] = useState<Professor>({
+    FullName: "",
+    University: "",
+    JoinYear: "",
+    SubField: [],
+    Bachelors: "",
+    Doctorate: "",
+  });
+
+  const allFieldsFilled =
+    newRowData.FullName.trim() !== "" &&
+    newRowData.University.trim() !== "" &&
+    newRowData.JoinYear.trim() !== "" &&
+    newRowData.SubField.length > 0 &&
+    newRowData.Bachelors.trim() !== "" &&
+    newRowData.Doctorate.trim() !== "";
 
   // Fetch and parse CSV data when the component loads
   useEffect(() => {
-    const fetchCsvData = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/csprofessors.csv');
-        const csvData = await response.text();
-
-        // Parse the CSV data and set the columns and data for the grid
-        Papa.parse(csvData, {
-          header: true,
-          transformHeader: (header: string) => header.trim(),
-          complete: (results: ParseResult<{ [key: string]: string }>) => {
-            const parsedData = results.data
-              .filter((row: { [s: string]: unknown; } | ArrayLike<unknown>) => Object.values(row).some((value) => value !== null && value !== ""))
-              .map((row: { [x: string]: any; }) => {
-                const professor: Professor = {
-                  FullName: row["FullName"] || "",
-                  University: row["University"] || "",
-                  JoinYear: row["JoinYear"] || "",
-                  SubField: row["SubField"] ? row["SubField"].split(',').map((s: string) => s.trim()) : [],
-                  Bachelors: row["Bachelors"] || "",
-                  Doctorate: row["Doctorate"] || "",
-                };
-                return professor;
-              });
-          
-            console.log("Parsed Data:", parsedData); // Add this line
-
-            // Create grid columns using validKeys
-            const gridColumns: GridColumn[] = validKeys.map((key) => {
-              let width = 150;
-              const colWidth = columnWidths[key];
-              if (typeof colWidth === 'string' && colWidth.endsWith('%')) {
-                const percent = parseFloat(colWidth) / 100;
-                width = gridWidth * percent;
-              }
-              return {
-                id: key,
-                title: key,
-                width: width,
-              };
-            });
-
-            setColumns(gridColumns);
-            setData(parsedData);
-            setFilteredData(parsedData);
-          },
-          skipEmptyLines: true,
-        });
+        const { gridColumns, parsedData } = await fetchCsvData(gridWidth);
+        setColumns(gridColumns);
+        setData(parsedData);
+        setFilteredData(parsedData);
       } catch (error) {
         console.error('Error fetching the CSV file:', error);
       }
     };
-
-    fetchCsvData();
+    fetchData();
   }, [gridWidth]);
 
-/*
-// Set static data when the component loads
-useEffect(() => {
-  // Set columns based on validKeys and columnWidths
-  const gridColumns: GridColumn[] = validKeys.map((key) => {
-    let width = 150;
-    const colWidth = columnWidths[key];
-    if (typeof colWidth === 'string' && colWidth.endsWith('%')) {
-      const percent = parseFloat(colWidth) / 100;
-      width = gridWidth * percent;
-    }
-    return {
-      id: key,
-      title: key,
-      width: width,
-    };
-  });
-
-  setColumns(gridColumns);
-  setData(staticData);
-  setFilteredData(staticData);
-}, [gridWidth]);
-*/
   // Apply filters to the data when filters or data change
   useEffect(() => {
     const applyFilters = () => {
@@ -190,6 +100,11 @@ useEffect(() => {
           if (!filterValue) return true;
 
           const cellValue = row[colKey];
+          if (Array.isArray(cellValue)) {
+            return cellValue.some((val) =>
+              val.toString().toLowerCase().includes(filterValue.toLowerCase())
+            );
+          }
           return cellValue?.toString().toLowerCase().includes(filterValue.toLowerCase());
         });
       });
@@ -198,6 +113,17 @@ useEffect(() => {
 
     applyFilters();
   }, [columnFilters, data, columns]);
+
+  // Update the URL parameters when filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+    validKeys.forEach((key) => {
+      if (columnFilters[key]) {
+        params.set(key, columnFilters[key] as string);
+      }
+    });
+    window.history.replaceState(null, '', '?' + params.toString());
+  }, [columnFilters]);
 
   // Update the column filter values
   const handleColumnFilterChange = (colKey: ProfessorKey, value: string) => {
@@ -285,14 +211,6 @@ useEffect(() => {
     }
   };
 
-  // Handle changes to checkbox options for the SubField column
-  const handleOptionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    setSelectedOptions((prev) =>
-      event.target.checked ? [...prev, value] : prev.filter((opt) => opt !== value)
-    );
-  };
-
   // Delete the selected rows or cell and update the data
   const handleDeleteRow = () => {
     if (gridSelection.rows.length > 0) {
@@ -327,63 +245,45 @@ useEffect(() => {
     setSnackbarOpen(false);
   };
 
-  // Handle adding rows to the database while updating state
-  const handleAddRow = () => {
-    const newRow: Professor = {
+  // Handle adding a new row
+  const handleAddRowConfirm = () => {
+    if (!allFieldsFilled) return; // Ensure all fields are filled
+
+    setData((prevData) => [...prevData, newRowData]);
+    setFilteredData((prevFilteredData) => [...prevFilteredData, newRowData]);
+
+    // Reset newRowData to empty values
+    setNewRowData({
       FullName: "",
       University: "",
       JoinYear: "",
       SubField: [],
       Bachelors: "",
       Doctorate: "",
-    };
-    setData((prevData) => [...prevData, newRow]);
-    setFilteredData((prevFilteredData) => [...prevFilteredData, newRow]);
+    });
+
+    // Hide the sticky footer
+    setIsAddingRow(false);
   };
 
   return (
-    <div className="App">
+    <div className="App" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       {/* Render filter text fields for each column */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-evenly",
-          padding: "10px",
-          flexWrap: "wrap",
-        }}
-      >
-        {columns.map((col) => {
-          const colKey = col.id as ProfessorKey;
-          return (
-            <TextField
-              key={colKey}
-              label={`Search ${col.title}`}
-              variant="outlined"
-              size="small"
-              value={columnFilters[colKey] || ""}
-              onChange={(e) => handleColumnFilterChange(colKey, e.target.value)}
-              style={{ marginBottom: "20px", width: columnWidths[colKey] }}
-            />
-          );
-        })}
-      </div>
+      <FilterBar
+        columns={columns}
+        columnFilters={columnFilters}
+        handleColumnFilterChange={handleColumnFilterChange}
+        columnWidths={columnWidths}
+      />
 
-      {/* Button to delete selected rows or cells */}
-      <div style={{ padding: "10px" }}>
-        <Button variant="contained" color="primary" onClick={handleDeleteRow}>
-          Delete Row
-        </Button>
-      </div>
-
-      {/* Button to add a new row */}
-      <div style={{ padding: "10px" }}>
-        <Button variant="contained" color="primary" onClick={handleAddRow}>
-          Add Row
-        </Button>
-      </div>
+      {/* Action Buttons */}
+      <ActionButtons
+        handleDeleteRow={handleDeleteRow}
+        setIsAddingRow={setIsAddingRow}
+      />
 
       {/* Render the DataEditor with filtered data */}
-      <div className="grid-container">
+      <div className="grid-container" style={{ flexGrow: 1 }}>
         <DataEditor
           columns={columns}
           getCellContent={getData}
@@ -395,37 +295,18 @@ useEffect(() => {
           gridSelection={gridSelection}
           showSearch={false}
           width={gridWidth}
+          height="100%"
         />
       </div>
 
-      {/* Modal for selecting SubField options */}
-      <Modal open={isOverlayVisible} onClose={() => setIsOverlayVisible(false)}>
-        <div
-          className="overlay-content"
-          style={{
-            background: "white",
-            padding: "20px",
-            borderRadius: "10px",
-            margin: "50px auto",
-            width: "300px",
-          }}
-        >
-          <h3>Select Options</h3>
-          {optionsList.map((option) => (
-            <div key={option}>
-              <Checkbox
-                value={option}
-                checked={selectedOptions.includes(option)}
-                onChange={handleOptionChange}
-              />
-              <label>{option}</label>
-            </div>
-          ))}
-          <Button variant="contained" color="primary" onClick={handleSaveOptions}>
-            Save
-          </Button>
-        </div>
-      </Modal>
+      {/* Modal for selecting SubField options in the grid cell editor */}
+      <SubFieldModal
+        isOverlayVisible={isOverlayVisible}
+        setIsOverlayVisible={setIsOverlayVisible}
+        selectedOptions={selectedOptions}
+        setSelectedOptions={setSelectedOptions}
+        handleSaveOptions={handleSaveOptions}
+      />
 
       {/* Snackbar for alerting the user if no selection is made */}
       <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={handleSnackbarClose}>
@@ -433,6 +314,19 @@ useEffect(() => {
           Please select a cell or row first.
         </Alert>
       </Snackbar>
+
+      {/* Conditionally render the Sticky Footer for Adding New Row */}
+      {isAddingRow && (
+        <AddRowFooter
+          validKeys={validKeys}
+          newRowData={newRowData}
+          setNewRowData={setNewRowData}
+          optionsList={optionsList}
+          handleAddRowConfirm={handleAddRowConfirm}
+          setIsAddingRow={setIsAddingRow}
+          allFieldsFilled={allFieldsFilled}
+        />
+      )}
     </div>
   );
 }
