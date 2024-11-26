@@ -374,25 +374,31 @@ useEffect(() => {
         })}
       </div>
 
-      {/* Button to delete selected rows or cells */}
-      <div style={{ padding: "10px" }}>
-        <Button variant="contained" color="primary" onClick={handleDeleteRow}>
+      {/* Button group for delete, add, and edit history */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center", 
+          gap: "10px", 
+          marginBottom: "20px",
+        }}
+      >
+        <Button
+          variant="contained" color="primary" onClick={handleDeleteRow} style={{ padding: "10px 10px" }}>
           Delete Row
         </Button>
-      </div>
 
-      {/* Button to add a new row */}
-      <div style={{ padding: "10px" }}>
-        <Button variant="contained" color="primary" onClick={handleAddRow}>
+        <Button
+          variant="contained" color="primary" onClick={handleAddRow}style={{ padding: "10px 10px" }}>
           Add Row
         </Button>
-      </div>
-      {/* Button to view edit history*/}
-      <div style={{ padding: "10px" }}>
-        <Button variant="contained" color="primary" onClick={handleEditHistory}>
+
+        <Button
+          variant="contained" color="primary" onClick={handleEditHistory} style={{ padding: "10px 10px" }}>
           Edit History
         </Button>
       </div>
+
 
       {/* Render the DataEditor with filtered data */}
       <div className="grid-container">
