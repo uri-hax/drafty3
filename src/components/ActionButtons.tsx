@@ -1,4 +1,13 @@
-// components/ActionButtons.tsx
+// src/components/ActionButtons.tsx
+
+/*
+  Provides action buttons for adding and deleting rows.
+  - Delete Row: Triggers a callback to remove the currently selected row(s).
+  - Add Row: Opens the interface for adding a new row to the dataset.
+
+  This component is data-agnostic and simply provides UI actions that the parent component can handle.
+*/
+
 import React from 'react';
 import { Button } from '@mui/material';
 
@@ -13,7 +22,6 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ handleDeleteRow, setIsAdd
       Delete Row
     </Button>
 
-    {/* Button to add a new row */}
     <Button
       variant="contained"
       color="primary"

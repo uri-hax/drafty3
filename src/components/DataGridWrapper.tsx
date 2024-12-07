@@ -1,4 +1,19 @@
-// components/ProfessorGrid.tsx
+// src/components/DataGridWrapper.tsx
+
+/*
+  A wrapper around the DataEditor from @glideapps/glide-data-grid that:
+  - Receives dynamically generated columns and filtered data rows.
+  - Maps cell data to either Text or Bubble cells based on column types from columnSchema.
+  - Handles edits and selections through parent callbacks.
+  - Data-agnostic: No column assumptions.
+
+  Requires:
+  - columns, filteredData, columnSchema: to know how to render each cell
+  - onCellEdited, onCellActivated, onGridSelectionChange: parent event handlers
+  - gridSelection: current selection state
+  - gridWidth: width of the grid in pixels
+*/
+
 import React from 'react';
 import {
   DataEditor,
@@ -10,19 +25,20 @@ import {
   type BubbleCell,
   type GridSelection,
 } from "@glideapps/glide-data-grid";
-import type { Professor, ProfessorKey } from '../interfaces/Professor';
+import type { ColumnData } from '../interfaces/ColumnData';
 
-interface ProfessorGridProps {
+interface DataGridWrapperProps {
   columns: GridColumn[];
-  filteredData: Professor[];
+  filteredData: ColumnData[];
   onCellEdited: ([col, row]: Item, newValue: EditableGridCell | BubbleCell) => void;
   onCellActivated: (cell: Item) => void;
   gridSelection: GridSelection;
   onGridSelectionChange: (newSelection: GridSelection) => void;
   gridWidth: number;
+  columnSchema: Record<string, string>;
 }
 
-const ProfessorGrid: React.FC<ProfessorGridProps> = ({
+const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
   columns,
   filteredData,
   onCellEdited,
@@ -30,14 +46,15 @@ const ProfessorGrid: React.FC<ProfessorGridProps> = ({
   gridSelection,
   onGridSelectionChange,
   gridWidth,
+  columnSchema,
 }) => {
-  // Generate data cells for the grid, including handling bubble cells for the SubField column
   const getData = ([col, row]: Item): GridCell => {
-    const colKey = columns[col].id as ProfessorKey;
+    const colKey = columns[col].id as string;
     const cellData = filteredData[row]?.[colKey];
+    const colType = columnSchema[colKey] || 'string';
 
-    if (colKey === "SubField") {
-      const bubbleData = Array.isArray(cellData) ? cellData : [];
+    if (colType === 'string[]') {
+      const bubbleData = Array.isArray(cellData) ? cellData as string[] : [];
       return {
         kind: GridCellKind.Bubble,
         data: bubbleData,
@@ -45,7 +62,8 @@ const ProfessorGrid: React.FC<ProfessorGridProps> = ({
       };
     }
 
-    const textData = cellData !== undefined && cellData !== null ? String(cellData) : "";
+    const textData = (cellData !== undefined && cellData !== null) ? String(cellData) : "";
+    
     return {
       kind: GridCellKind.Text,
       data: textData,
@@ -71,4 +89,4 @@ const ProfessorGrid: React.FC<ProfessorGridProps> = ({
   );
 };
 
-export default ProfessorGrid;
+export default DataGridWrapper;

@@ -1,22 +1,40 @@
-// components/SubFieldModal.tsx
+// src/components/MultiSelectModal.tsx
+
+/*
+  A generic modal for selecting multiple string values from a given options list.
+  - Uses Autocomplete with multiple selection.
+  - Triggered by a boolean state, and returns selected options to the parent.
+  - Data-agnostic: can be used for any string[] column, not just a specific one.
+
+  Requires:
+  - isOverlayVisible & setIsOverlayVisible: controls modal visibility
+  - selectedOptions & setSelectedOptions: current selection state
+  - handleSaveOptions: callback to apply the changes
+  - optionsList: array of possible string values
+  - title: optional modal title for clarity
+*/
+
 import React from 'react';
 import { Modal, Button, TextField, Autocomplete } from '@mui/material';
-import { optionsList } from '../utils/constants';
 
-interface SubFieldModalProps {
+interface MultiSelectModalProps {
   isOverlayVisible: boolean;
   setIsOverlayVisible: React.Dispatch<React.SetStateAction<boolean>>;
   selectedOptions: string[];
   setSelectedOptions: React.Dispatch<React.SetStateAction<string[]>>;
   handleSaveOptions: () => void;
+  optionsList: string[];
+  title?: string;
 }
 
-const SubFieldModal: React.FC<SubFieldModalProps> = ({
+const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
   isOverlayVisible,
   setIsOverlayVisible,
   selectedOptions,
   setSelectedOptions,
   handleSaveOptions,
+  optionsList,
+  title = "Select Values",
 }) => (
   <Modal open={isOverlayVisible} onClose={() => setIsOverlayVisible(false)}>
     <div
@@ -29,7 +47,7 @@ const SubFieldModal: React.FC<SubFieldModalProps> = ({
         width: "400px",
       }}
     >
-      <h3>Select SubFields</h3>
+      <h3>{title}</h3>
       <Autocomplete
         multiple
         options={optionsList}
@@ -42,7 +60,7 @@ const SubFieldModal: React.FC<SubFieldModalProps> = ({
           <TextField
             {...params}
             variant="outlined"
-            placeholder="Select SubFields"
+            placeholder="Select Values"
           />
         )}
         style={{ marginBottom: "20px" }}
@@ -54,4 +72,4 @@ const SubFieldModal: React.FC<SubFieldModalProps> = ({
   </Modal>
 );
 
-export default SubFieldModal;
+export default MultiSelectModal;

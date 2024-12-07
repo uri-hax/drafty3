@@ -1,28 +1,44 @@
-// components/AddRowFooter.tsx
+// src/components/AddRowFooter.tsx
+
+/*
+  Displays a footer UI when adding a new row to the dataset.
+  - Dynamically generates input fields for each column, based on the column schema:
+    * string columns: TextField input
+    * string[] columns: Autocomplete multiple-select input
+  - Includes a confirm button (checks if all fields are filled) and a cancel button to discard changes.
+  - Relies on parent-provided:
+    * columnKeys: array of column names
+    * columnSchema: defines column types ('string' or 'string[]')
+    * optionsLists: map of column name -> unique string values (for Autocomplete)
+    * newRowData and setNewRowData: state for building a new row before adding it
+    * allFieldsFilled: boolean indicating if all inputs have values
+*/
+
 import React from 'react';
 import { TextField, Button, IconButton, Autocomplete } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import type { Professor, ProfessorKey } from '../interfaces/Professor';
-import { optionsList } from '../utils/constants';
+import type { ColumnData } from '../interfaces/ColumnData';
 
 interface AddRowFooterProps {
-  validKeys: readonly ProfessorKey[];
-  newRowData: Professor;
-  setNewRowData: React.Dispatch<React.SetStateAction<Professor>>;
-  optionsList: string[];
+  columnKeys: string[];
+  newRowData: ColumnData;
+  setNewRowData: React.Dispatch<React.SetStateAction<ColumnData>>;
+  optionsLists: Record<string, string[]>;
   handleAddRowConfirm: () => void;
   setIsAddingRow: React.Dispatch<React.SetStateAction<boolean>>;
   allFieldsFilled: boolean;
+  columnSchema: Record<string, string>; 
 }
 
 const AddRowFooter: React.FC<AddRowFooterProps> = ({
-  validKeys,
+  columnKeys,
   newRowData,
   setNewRowData,
-  optionsList,
+  optionsLists,
   handleAddRowConfirm,
   setIsAddingRow,
   allFieldsFilled,
+  columnSchema,
 }) => (
   <div
     style={{
@@ -41,28 +57,30 @@ const AddRowFooter: React.FC<AddRowFooterProps> = ({
     }}
   >
     <div style={{ display: "flex", flex: 1, alignItems: "center", overflowX: "auto" }}>
-      {validKeys.map((key) => {
-        if (key === "SubField") {
-          // Render Autocomplete for SubField
+      {columnKeys.map((key) => {
+        const colType = columnSchema[key] || 'string';
+
+        if (colType === 'string[]') {
+          const currentValues = Array.isArray(newRowData[key]) ? newRowData[key] as string[] : [];
           return (
             <Autocomplete
               key={key}
               multiple
-              options={optionsList}
+              options={optionsLists[key] || []}
               getOptionLabel={(option) => option}
-              value={newRowData.SubField}
+              value={currentValues}
               onChange={(event, newValue) => {
                 setNewRowData((prevData) => ({
                   ...prevData,
-                  SubField: newValue,
+                  [key]: newValue,
                 }));
               }}
               renderInput={(params) => (
                 <TextField
                   {...params}
                   variant="outlined"
-                  label="SubField"
-                  placeholder="Select SubFields"
+                  label={key}
+                  placeholder={`Select ${key}`}
                   size="small"
                   style={{ margin: "5px", minWidth: "150px" }}
                 />
@@ -70,14 +88,17 @@ const AddRowFooter: React.FC<AddRowFooterProps> = ({
               style={{ margin: "5px", minWidth: "150px" }}
             />
           );
-        } else {
+        } 
+        else {
+          const currentValue = typeof newRowData[key] === 'string' ? (newRowData[key] as string) : '';
+
           return (
             <TextField
               key={key}
               label={key}
               variant="outlined"
               size="small"
-              value={newRowData[key] || ""}
+              value={currentValue}
               onChange={(e) =>
                 setNewRowData((prevData) => ({
                   ...prevData,
@@ -91,9 +112,7 @@ const AddRowFooter: React.FC<AddRowFooterProps> = ({
       })}
     </div>
 
-    {/* Buttons */}
     <div style={{ display: "flex", alignItems: "center", marginLeft: "auto" }}>
-      {/* Add Button */}
       <IconButton
         color="primary"
         onClick={handleAddRowConfirm}
@@ -102,22 +121,22 @@ const AddRowFooter: React.FC<AddRowFooterProps> = ({
         <CheckCircleIcon />
       </IconButton>
 
-      {/* Cancel Button */}
       <Button
         variant="contained"
         color="primary"
         onClick={() => {
           setIsAddingRow(false);
-          // Reset newRowData to empty values
-          setNewRowData({
-            FullName: "",
-            University: "",
-            JoinYear: "",
-            SubField: [],
-            Bachelors: "",
-            Doctorate: "",
+          setNewRowData(() => {
+            const resetObj: ColumnData = {};
+
+            for (const key of columnKeys) {
+              resetObj[key] = columnSchema[key] === 'string[]' ? [] : '';
+            }
+
+            return resetObj;
           });
         }}
+        
         style={{ marginLeft: "10px" }}
       >
         Cancel

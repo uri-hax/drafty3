@@ -1,0 +1,7 @@
+UniqueId: string
+FullName: string
+University: string
+JoinYear: string
+SubField: string[]
+Bachelors: string
+Doctorate: string
