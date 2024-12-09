@@ -63,8 +63,8 @@ const fetchYamlSchema = async (yamlFilePath?: string): Promise<Record<string, st
 
 export const fetchCsvData = async (
   gridWidth: number,
-  csvFilePath: string, 
   customWidths: Record<string, string> = {},
+  csvFilePath: string, 
   yamlSchemaFilePath?: string
 ): Promise<{ 
   gridColumns: GridColumn[]; 

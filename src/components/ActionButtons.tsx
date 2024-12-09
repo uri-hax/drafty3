@@ -18,18 +18,20 @@ interface ActionButtonsProps {
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({ handleDeleteRow, setIsAddingRow }) => (
   <div style={{ padding: "10px" }}>
-    <Button variant="contained" color="primary" onClick={handleDeleteRow}>
-      Delete Row
-    </Button>
+    <div style={{ display: "flex", justifyContent: "flex-start", gap: "10px" }}>
+      <Button variant="contained" color="primary" onClick={handleDeleteRow}>
+        Delete Row
+      </Button>
 
-    <Button
-      variant="contained"
-      color="primary"
-      onClick={() => setIsAddingRow(true)}
-      style={{ marginLeft: "10px" }}
-    >
-      Add Row
-    </Button>
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={() => setIsAddingRow(true)}
+        style={{ marginLeft: "10px" }}
+      >
+        Add Row
+      </Button>
+    </div>
   </div>
 );
 

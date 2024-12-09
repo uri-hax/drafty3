@@ -78,13 +78,16 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
       getCellContent={getData}
       rows={filteredData.length}
       onCellEdited={onCellEdited}
-      rowMarkers="number"
+      rowMarkers="none"
       onCellActivated={onCellActivated}
       onGridSelectionChange={onGridSelectionChange}
       gridSelection={gridSelection}
       showSearch={false}
       width={gridWidth}
       height="100%"
+      getRowThemeOverride={(rowIndex: number) => ({
+        bgCell: rowIndex % 2 === 0 ? "#ffffff" : "#f0f0f0", 
+      })}
     />
   );
 };

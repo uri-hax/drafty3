@@ -21,42 +21,46 @@ interface FilterBarProps {
   columns: GridColumn[];
   columnFilters: Record<string, string>;
   handleColumnFilterChange: (colKey: string, value: string) => void;
-  columnWidths: Record<string, string>;
+  columnWidths?: Record<string, string>;
 }
 
 const FilterBar: React.FC<FilterBarProps> = ({
   columns,
   columnFilters,
   handleColumnFilterChange,
-  columnWidths,
-}) => (
-  <div
-    style={{
-      display: 'flex',
-      justifyContent: 'flex-start',
-      padding: '10px',
-      overflowX: 'auto',
-    }}
-  >
-    {columns.map((col) => {
-      const colKey = col.id as string; 
+  columnWidths = {},
+}) => {
+  const defaultWidth = `${100 / columns.length}%`; 
 
-      return (
-        <TextField
-          key={colKey}
-          label={`Search ${col.title}`}
-          variant="outlined"
-          size="small"
-          value={columnFilters[colKey] || ''} 
-          onChange={(e) => handleColumnFilterChange(colKey, e.target.value)} 
-          style={{
-            width: columnWidths[colKey] || '150px', 
-            marginRight: '10px',
-          }}
-        />
-      );
-    })}
-  </div>
-);
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'flex-start',
+        padding: '0px',
+        overflowX: 'auto',
+      }}
+    >
+      {columns.map((col) => {
+        const colKey = col.id as string;
+
+        return (
+          <TextField
+            key={colKey}
+            label={`Search ${col.title}`}
+            variant="outlined"
+            size="small"
+            value={columnFilters[colKey] || ''}
+            onChange={(e) => handleColumnFilterChange(colKey, e.target.value)}
+            style={{
+              width: columnWidths?.[colKey] || defaultWidth, 
+              marginRight: '0px',
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+};
 
 export default FilterBar;

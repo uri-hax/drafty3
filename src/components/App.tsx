@@ -36,7 +36,7 @@ const customWidths: Record<string, string> = {
   FullName: "15%",
   University: "20%",
   JoinYear: "5%",
-  SubField: "15%",
+  SubField: "18%",
   Bachelors: "20%",
   Doctorate: "20%"
 };
@@ -79,9 +79,9 @@ export default function App() {
       try {
         const { gridColumns, parsedData, optionsLists, columnSchema } = await fetchCsvData(
           gridWidth, 
-          '/csprofessors.csv', 
           customWidths,
-          '/csprofessors.yaml'
+          '/csprofessors.csv',
+          'csprofessors.yaml'
         );
 
         console.log('Grid Columns:', gridColumns);   
@@ -299,6 +299,11 @@ export default function App() {
 
   return (
     <div className="App" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+      <ActionButtons
+        handleDeleteRow={handleDeleteRow}
+        setIsAddingRow={setIsAddingRow}
+      />
+
       {columns.length > 0 ? (
         <FilterBar
           columns={columns}
@@ -309,11 +314,6 @@ export default function App() {
       ) : (
         <div>No columns available. Check your data source.</div>
       )}
-
-      <ActionButtons
-        handleDeleteRow={handleDeleteRow}
-        setIsAddingRow={setIsAddingRow}
-      />
 
       <div className="grid-container" style={{ flexGrow: 1 }}>
         <DataGridWrapper
