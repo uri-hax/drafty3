@@ -1,4 +1,5 @@
 import '/public/App.css';
+import '/public/custom.css';
 import "@glideapps/glide-data-grid/dist/index.css";
 import React, { useState, useEffect } from 'react';
 import {
@@ -71,6 +72,12 @@ validKeys.forEach((name) => {
     initialFilters[name] = value;
   }
 });
+
+//make every other row a grey
+const rowStyle = {
+  bgCell: "#ffffff",
+  bgCellAlt: "#f0f0f0",
+};
 
 // Main App component
 export default function App() {
@@ -349,36 +356,12 @@ useEffect(() => {
   
   return (
     <div className="App">
-      {/* Render filter text fields for each column */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-evenly",
-          padding: "10px",
-          flexWrap: "wrap",
-        }}
-      >
-        {columns.map((col) => {
-          const colKey = col.id as ProfessorKey;
-          return (
-            <TextField
-              key={colKey}
-              label={`Search ${col.title}`}
-              variant="outlined"
-              size="small"
-              value={columnFilters[colKey] || ""}
-              onChange={(e) => handleColumnFilterChange(colKey, e.target.value)}
-              style={{ marginBottom: "20px", width: columnWidths[colKey] }}
-            />
-          );
-        })}
-      </div>
-
       {/* Button group for delete, add, and edit history */}
       <div
         style={{
           display: "flex",
-          justifyContent: "center", 
+          justifyContent: "left", 
+          padding: "10px",
           gap: "10px", 
           marginBottom: "20px",
         }}
@@ -399,6 +382,31 @@ useEffect(() => {
         </Button>
       </div>
 
+      {/* Render filter text fields for each column */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-evenly",
+          padding: "0px",
+          flexWrap: "wrap",
+        }}
+      >
+        {columns.map((col) => {
+          const colKey = col.id as ProfessorKey;
+          return (
+            <TextField
+              key={colKey}
+              label={`Search ${col.title}`}
+              variant="outlined"
+              size="small"
+              value={columnFilters[colKey] || ""}
+              onChange={(e) => handleColumnFilterChange(colKey, e.target.value)}
+              style={{ marginBottom: "20px", width: columnWidths[colKey] }}
+            />
+          );
+        })}
+      </div>
+
 
       {/* Render the DataEditor with filtered data */}
       <div className="grid-container">
@@ -407,12 +415,19 @@ useEffect(() => {
           getCellContent={getData}
           rows={filteredData.length}
           onCellEdited={onCellEdited}
-          rowMarkers="number"
+          rowMarkers="none"
           onCellActivated={onCellActivated}
           onGridSelectionChange={onGridSelectionChange}
           gridSelection={gridSelection}
           showSearch={false}
           width={gridWidth}
+          theme={rowStyle}
+          getRowThemeOverride={(rowIndex) => {
+            if (rowIndex % 2 === 1) {
+              return { bgCell: "#f0f0f0" }; //grey for even rows
+            }
+            return undefined;
+          }}
         />
       </div>
 

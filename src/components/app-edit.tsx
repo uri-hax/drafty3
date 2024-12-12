@@ -64,9 +64,8 @@ const AppEdit = () => {
     }, []);
   
     return (
-        <div style={{ padding: "20px" }}>
+        <div style={{ padding: "0px" }}>
         <h1>Edit History</h1>
-  
         {/* Header Buttons */}
         <div style={{ marginBottom: "20px" }}>
           <button
@@ -97,7 +96,7 @@ const AppEdit = () => {
             Edit History
           </button>
         </div>
-  
+
         {/* Table */}
         <table
           style={{
@@ -108,18 +107,18 @@ const AppEdit = () => {
         >
           <thead>
             <tr>
-              <th style={{ border: "1px solid #ddd", padding: "8px" }}>When</th>
-              <th style={{ border: "1px solid #ddd", padding: "8px" }}>Edited By</th>
-              <th style={{ border: "1px solid #ddd", padding: "8px" }}>Who Was Edited</th>
-              <th style={{ border: "1px solid #ddd", padding: "8px" }}>Column</th>
-              <th style={{ border: "1px solid #ddd", padding: "8px" }}>Action</th>
-              <th style={{ border: "1px solid #ddd", padding: "8px" }}>Changed From</th>
-              <th style={{ border: "1px solid #ddd", padding: "8px" }}>Changed To</th>
+              <th style={{ border: "1px solid #ddd", padding: "8px", backgroundColor: "#f0f0f0" }}>When</th>
+              <th style={{ border: "1px solid #ddd", padding: "8px", backgroundColor: "#f0f0f0" }}>Edited By</th>
+              <th style={{ border: "1px solid #ddd", padding: "8px", backgroundColor: "#f0f0f0" }}>Who Was Edited</th>
+              <th style={{ border: "1px solid #ddd", padding: "8px", backgroundColor: "#f0f0f0" }}>Column</th>
+              <th style={{ border: "1px solid #ddd", padding: "8px", backgroundColor: "#f0f0f0" }}>Action</th>
+              <th style={{ border: "1px solid #ddd", padding: "8px", backgroundColor: "#f0f0f0" }}>Changed From</th>
+              <th style={{ border: "1px solid #ddd", padding: "8px", backgroundColor: "#f0f0f0" }}>Changed To</th>
             </tr>
           </thead>
           <tbody>
             {data.map((row, index) => (
-              <tr key={index}>
+              <tr key={index} style={{backgroundColor: index % 2 === 1 ? "#f9f9f9" : "#fff" }} >
                 <td style={{ border: "1px solid #ddd", padding: "8px" }}>{row.When}</td>
                 <td style={{ border: "1px solid #ddd", padding: "8px" }}>{row.Edited_By}</td>
                 <td style={{ border: "1px solid #ddd", padding: "8px" }}>{row.Who_Was_Edit}</td>
