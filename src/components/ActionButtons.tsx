@@ -14,9 +14,10 @@ import { Button } from '@mui/material';
 interface ActionButtonsProps {
   handleDeleteRow: () => void;
   setIsAddingRow: React.Dispatch<React.SetStateAction<boolean>>;
+  handleEditHistory: () => void;
 }
 
-const ActionButtons: React.FC<ActionButtonsProps> = ({ handleDeleteRow, setIsAddingRow }) => (
+const ActionButtons: React.FC<ActionButtonsProps> = ({ handleDeleteRow, setIsAddingRow, handleEditHistory }) => (
   <div style={{ padding: "10px" }}>
     <div style={{ display: "flex", justifyContent: "flex-start", gap: "10px" }}>
       <Button variant="contained" color="primary" onClick={handleDeleteRow}>
@@ -30,6 +31,11 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ handleDeleteRow, setIsAdd
         style={{ marginLeft: "10px" }}
       >
         Add Row
+      </Button>
+
+      <Button
+        variant="contained" color="primary" onClick={handleEditHistory} style={{ padding: "10px 10px" }}>
+          Edit History
       </Button>
     </div>
   </div>

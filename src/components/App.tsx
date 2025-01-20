@@ -297,11 +297,18 @@ export default function App() {
     setIsAddingRow(false);
   };
 
+  // Handle viewing edit history
+  const handleEditHistory = () => {
+    // Navigate to the edit history page
+    window.location.href = "/edit-history";
+  };
+
   return (
     <div className="App" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <ActionButtons
         handleDeleteRow={handleDeleteRow}
         setIsAddingRow={setIsAddingRow}
+        handleEditHistory={handleEditHistory}
       />
 
       {columns.length > 0 ? (
