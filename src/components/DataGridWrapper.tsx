@@ -87,6 +87,7 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
       height="100%"
       getRowThemeOverride={(rowIndex: number) => ({
         bgCell: rowIndex % 2 === 0 ? "#ffffff" : "#f0f0f0", 
+        bgBubble: "#6bb6ff",
       })}
     />
   );
