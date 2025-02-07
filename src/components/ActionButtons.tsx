@@ -9,7 +9,7 @@
 */
 
 import React from 'react';
-import { Button } from '@mui/material';
+import { Button, responsiveFontSizes } from '@mui/material';
 
 interface ActionButtonsProps {
   handleDeleteRow: () => void;
@@ -18,9 +18,22 @@ interface ActionButtonsProps {
 }
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({ handleDeleteRow, setIsAddingRow, handleEditHistory }) => (
-  <div style={{ padding: "10px" }}>
+  <div style={{ padding: "10px", backgroundColor: "dodgerblue" }}>
     <div style={{ display: "flex", justifyContent: "flex-start", gap: "10px" }}>
-      <Button variant="contained" color="primary" onClick={handleDeleteRow}>
+      <div style={{padding: "10px", color: "white", fontSize: 20, fontWeight: "bold"}}>
+        Drafty
+      </div>
+      <Button 
+        variant="contained"
+        color="primary" 
+        onClick={handleDeleteRow} 
+        style={
+          { marginLeft: "10px", 
+            borderColor: "white", 
+            borderWidth: "2px",
+            borderStyle: "solid" }
+        }
+      >
         Delete Row
       </Button>
 
@@ -28,13 +41,27 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ handleDeleteRow, setIsAdd
         variant="contained"
         color="primary"
         onClick={() => setIsAddingRow(true)}
-        style={{ marginLeft: "10px" }}
+        style={
+          { marginLeft: "10px", 
+            borderColor: "white", 
+            borderWidth: "2px",
+            borderStyle: "solid" }
+        }
       >
         Add Row
       </Button>
 
       <Button
-        variant="contained" color="primary" onClick={handleEditHistory} style={{ padding: "10px 10px" }}>
+        variant="contained"
+        color="primary"
+        onClick={handleEditHistory} 
+        style={
+          { marginLeft: "10px", 
+            borderColor: "white", 
+            borderWidth: "2px",
+            borderStyle: "solid" }
+        }
+      >
           Edit History
       </Button>
     </div>

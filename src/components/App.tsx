@@ -17,7 +17,7 @@
   This file completes the data-agnostic refactor by dynamically handling columns, schema, and data.
 */
 
-import '../../public/App.css';
+import './App.css';
 import "@glideapps/glide-data-grid/dist/index.css";
 import React, { useState, useEffect } from 'react';
 import { Snackbar, Button } from '@mui/material';
@@ -297,9 +297,7 @@ export default function App() {
     setIsAddingRow(false);
   };
 
-  // Handle viewing edit history
   const handleEditHistory = () => {
-    // Navigate to the edit history page
     window.location.href = "/edit-history";
   };
 

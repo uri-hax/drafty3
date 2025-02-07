@@ -14,7 +14,8 @@
 */
 
 import React from 'react';
-import { TextField } from '@mui/material';
+import { TextField, InputAdornment } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 import type { GridColumn } from '@glideapps/glide-data-grid';
 
 interface FilterBarProps {
@@ -47,7 +48,6 @@ const FilterBar: React.FC<FilterBarProps> = ({
         return (
           <TextField
             key={colKey}
-            label={`Search ${col.title}`}
             variant="outlined"
             size="small"
             value={columnFilters[colKey] || ''}
@@ -55,6 +55,13 @@ const FilterBar: React.FC<FilterBarProps> = ({
             style={{
               width: columnWidths?.[colKey] || defaultWidth, 
               marginRight: '0px',
+            }}
+            InputProps={{
+              startAdornment: !columnFilters[colKey] ? (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ) : null,
             }}
           />
         );
