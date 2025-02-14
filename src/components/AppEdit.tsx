@@ -1,135 +1,139 @@
-import React, { useState, useEffect } from "react";
-import { DataEditor, GridCellKind } from "@glideapps/glide-data-grid";
-import { Button } from "@mui/material";
-import Papa from "papaparse";
+import './App.css';
+import "@glideapps/glide-data-grid/dist/index.css";
+import React, { useState, useEffect } from 'react';
+import { type GridColumn } from "@glideapps/glide-data-grid";
+import { fetchCsvData } from '../utils/csvParser';
+import type { ColumnData } from '../interfaces/ColumnData';
+import useWindowWidth from '../hooks/useWindow';
+import ActionButtons from './ActionButtons';
+import DataGridWrapper from './DataGridWrapper';
 
-interface EditHistoryEntry {
-    When: string;
-    Edited_By: string;
-    Who_Was_Edit: string;
-    Column: string;
-    Action: string;
-    Changed_From: string;
-    Changed_To: string;
-}
+const customWidths: Record<string, string> = {
+  When: "10%",
+  EditedBy: "10%",
+  Action: "10%",
+  WhoWasEdited: "20%",
+  Column: "10%",
+  ChangedFrom: "20%",
+  ChangedTo: "20%"
+};
 
-const editHistoryData: EditHistoryEntry[] = [
-    {
-      When: "2024-11-24 14:58",
-      Edited_By: "anon10271783",
-      Who_Was_Edit: "Cindy Ya Xiong (Georgia Institute of Technology)",
-      Column: "FullName",
-      Action: "del row",
-      Changed_From: "Cindy Ya Xiong",
-      Changed_To: "[row deleted]",
-    },
-    {
-      When: "2024-11-24 12:20",
-      Edited_By: "anon10271783",
-      Who_Was_Edit: "Zirui Liu (University of Minnesota)",
-      Column: "University",
-      Action: "edit cell",
-      Changed_From: "Arizona State University",
-      Changed_To: "University of Minnesota",
-    },
-  ];
-  
-const validKeys =  ["When", "Edited_By", "Who_Was_Edit", "Column", "Changed_From", "Changed_To"];
-type EditKeys = typeof validKeys[number];
+export default function App() {
+  useEffect(() => {
+    const portalDiv = document.getElementById('portal');
 
-const AppEdit = () => {
-    const [data, setData] = useState<EditHistoryEntry[]>([]);
-  
-    useEffect(() => {
-      const fetchData = async () => {
-        try {
-          const response = await fetch("/edit-history.csv");
-          const csvData = await response.text();
-          Papa.parse(csvData, {
-            header: true,
-            skipEmptyLines: true,
-            complete: (result) => {
-              const parsedData = result.data as EditHistoryEntry[];
-              setData(parsedData);
-            },
-          });
-        } 
-        catch (error) {
-          console.error("Error fetching the CSV file:", error);
+    if (!portalDiv) {
+      const newPortalDiv = document.createElement('div');
+      newPortalDiv.id = 'portal';
+      document.body.appendChild(newPortalDiv);
+    }
+  }, []);
+
+  const gridWidth = useWindowWidth();
+
+  const [columns, setColumns] = useState<GridColumn[]>([]);
+  const [data, setData] = useState<ColumnData[]>([]);
+  const [filteredData, setFilteredData] = useState<ColumnData[]>([]);
+  const [columnSchema, setColumnSchema] = useState<Record<string, string>>({});
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const { gridColumns, parsedData, columnSchema } = await fetchCsvData(
+          gridWidth, 
+          customWidths,
+          '/edit-history.csv',
+        ); 
+
+        setColumns(gridColumns);
+        setData(parsedData);
+        setFilteredData(parsedData);
+        setColumnSchema(columnSchema);
+
+        const params = new URLSearchParams(window.location.search);
+        const initialFilters: Record<string, string> = {};
+        const columnKeys = Object.keys(parsedData[0] || {});
+
+        columnKeys.forEach((name) => {
+          const value = params.get(name);
+          if (value) {
+            initialFilters[name] = value;
+          }
+        });
+
+        setColumnFilters(initialFilters);
+      } 
+      catch (error) {
+        console.error('Error fetching CSV/YAML data:', error);
+      }
+    };
+
+    fetchData();
+  }, [gridWidth]);
+ 
+  useEffect(() => {
+    if (columns.length === 0 || data.length === 0) return;
+
+    const filtered = data.filter((row) =>
+      columns.every((col) => {
+        const colKey = col.id as string;
+        const filterValue = columnFilters[colKey];
+
+        if (!filterValue) return true;
+
+        const cellValue = row[colKey];
+
+        if (Array.isArray(cellValue)) {
+          return cellValue.some((val) =>
+            val.toString().toLowerCase().includes(filterValue.toLowerCase())
+          );
         }
-      };
-      fetchData();
-    }, []);
-  
-    return (
-        <div style={{ padding: "0px" }}>
-        <h1>Edit History</h1>
-        {/* Header Buttons */}
-        <div style={{ marginBottom: "20px" }}>
-          <button
-            onClick={() => (window.location.href = "/csprofs")}
-            style={{
-              marginRight: "10px",
-              padding: "10px 20px",
-              backgroundColor: "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-              cursor: "pointer",
-            }}
-          >
-            CS Professors
-          </button>
-          <button
-            onClick={() => (window.location.href = "/edit-history")}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-              cursor: "pointer",
-            }}
-          >
-            Edit History
-          </button>
-        </div>
 
-        {/* Table */}
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            textAlign: "left",
-          }}
-        >
-          <thead>
-            <tr>
-              <th style={{ border: "1px solid #ddd", padding: "8px", backgroundColor: "#f0f0f0" }}>When</th>
-              <th style={{ border: "1px solid #ddd", padding: "8px", backgroundColor: "#f0f0f0" }}>Edited By</th>
-              <th style={{ border: "1px solid #ddd", padding: "8px", backgroundColor: "#f0f0f0" }}>Who Was Edited</th>
-              <th style={{ border: "1px solid #ddd", padding: "8px", backgroundColor: "#f0f0f0" }}>Column</th>
-              <th style={{ border: "1px solid #ddd", padding: "8px", backgroundColor: "#f0f0f0" }}>Action</th>
-              <th style={{ border: "1px solid #ddd", padding: "8px", backgroundColor: "#f0f0f0" }}>Changed From</th>
-              <th style={{ border: "1px solid #ddd", padding: "8px", backgroundColor: "#f0f0f0" }}>Changed To</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((row, index) => (
-              <tr key={index} style={{backgroundColor: index % 2 === 1 ? "#f9f9f9" : "#fff" }} >
-                <td style={{ border: "1px solid #ddd", padding: "8px" }}>{row.When}</td>
-                <td style={{ border: "1px solid #ddd", padding: "8px" }}>{row.Edited_By}</td>
-                <td style={{ border: "1px solid #ddd", padding: "8px" }}>{row.Who_Was_Edit}</td>
-                <td style={{ border: "1px solid #ddd", padding: "8px" }}>{row.Column}</td>
-                <td style={{ border: "1px solid #ddd", padding: "8px" }}>{row.Action}</td>
-                <td style={{ border: "1px solid #ddd", padding: "8px" }}>{row.Changed_From}</td>
-                <td style={{ border: "1px solid #ddd", padding: "8px" }}>{row.Changed_To}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        return cellValue?.toString().toLowerCase().includes(filterValue.toLowerCase());
+      })
     );
+
+    setFilteredData(filtered);
+  }, [columnFilters, data, columns]);
+
+  useEffect(() => {
+    if (columns.length === 0) return;
+
+    const params = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(columnFilters)) {
+      if (value) {
+        params.set(key, value);
+      }
+    }
+
+    window.history.replaceState(null, '', '?' + params.toString());
+  }, [columnFilters, columns]);
+
+  const handleData = () => {
+    window.location.href = "/csprofs";
+  }
+
+  const handleEditHistory = () => {
+    window.location.href = "/edit-history";
   };
-  
-  export default AppEdit;
+
+  return (
+    <div className="App" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+      <ActionButtons
+        handleData={handleData}
+        handleEditHistory={handleEditHistory}
+      />
+
+      <div className="grid-container" style={{ flexGrow: 1 }}>
+        <DataGridWrapper
+          columns={columns}
+          filteredData={filteredData}
+          gridWidth={gridWidth}
+          columnSchema={columnSchema}
+        />
+      </div>
+    </div>
+  );
+}

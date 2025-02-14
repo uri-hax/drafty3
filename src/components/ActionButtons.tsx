@@ -9,61 +9,82 @@
 */
 
 import React from 'react';
-import { Button, responsiveFontSizes } from '@mui/material';
+import { Button } from '@mui/material';
 
 interface ActionButtonsProps {
-  handleDeleteRow: () => void;
-  setIsAddingRow: React.Dispatch<React.SetStateAction<boolean>>;
+  handleDeleteRow?: () => void;
+  setIsAddingRow?: React.Dispatch<React.SetStateAction<boolean>>;
   handleEditHistory: () => void;
+  handleData: () => void;
 }
 
-const ActionButtons: React.FC<ActionButtonsProps> = ({ handleDeleteRow, setIsAddingRow, handleEditHistory }) => (
+const ActionButtons: React.FC<ActionButtonsProps> = ({
+  handleDeleteRow,
+  setIsAddingRow,
+  handleEditHistory,
+  handleData,
+}) => (
   <div style={{ padding: "10px", backgroundColor: "dodgerblue" }}>
-    <div style={{ display: "flex", justifyContent: "flex-start", gap: "10px" }}>
-      <div style={{padding: "10px", color: "white", fontSize: 20, fontWeight: "bold"}}>
+    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <div style={{ padding: "10px", color: "white", fontSize: 20, fontWeight: "bold" }}>
         Drafty
       </div>
-      <Button 
+
+      <Button
         variant="contained"
-        color="primary" 
-        onClick={handleDeleteRow} 
-        style={
-          { marginLeft: "10px", 
-            borderColor: "white", 
-            borderWidth: "2px",
-            borderStyle: "solid" }
-        }
+        color="primary"
+        onClick={handleData}
+        style={{
+          borderColor: "white",
+          borderWidth: "2px",
+          borderStyle: "solid",
+        }}
       >
-        Delete Row
+        CS Professors
       </Button>
 
       <Button
         variant="contained"
         color="primary"
-        onClick={() => setIsAddingRow(true)}
-        style={
-          { marginLeft: "10px", 
-            borderColor: "white", 
-            borderWidth: "2px",
-            borderStyle: "solid" }
-        }
+        onClick={handleEditHistory}
+        style={{
+          borderColor: "white",
+          borderWidth: "2px",
+          borderStyle: "solid",
+        }}
       >
-        Add Row
+        Edit History
       </Button>
 
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={handleEditHistory} 
-        style={
-          { marginLeft: "10px", 
-            borderColor: "white", 
+      {setIsAddingRow && (
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => setIsAddingRow(true)}
+          style={{
+            borderColor: "white",
             borderWidth: "2px",
-            borderStyle: "solid" }
-        }
-      >
-          Edit History
-      </Button>
+            borderStyle: "solid",
+          }}
+        >
+          Add Row
+        </Button>
+      )}
+
+      {handleDeleteRow && (
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleDeleteRow}
+          style={{
+            borderColor: "white",
+            borderWidth: "2px",
+            borderStyle: "solid",
+          }}
+        >
+          Delete Row
+        </Button>
+      )}
     </div>
   </div>
 );

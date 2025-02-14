@@ -297,6 +297,10 @@ export default function App() {
     setIsAddingRow(false);
   };
 
+  const handleData = () => {
+    window.location.href = "/csprofs";
+  }
+
   const handleEditHistory = () => {
     window.location.href = "/edit-history";
   };
@@ -304,9 +308,10 @@ export default function App() {
   return (
     <div className="App" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <ActionButtons
-        handleDeleteRow={handleDeleteRow}
-        setIsAddingRow={setIsAddingRow}
+        handleData={handleData}
         handleEditHistory={handleEditHistory}
+        setIsAddingRow={setIsAddingRow}
+        handleDeleteRow={handleDeleteRow}
       />
 
       {columns.length > 0 ? (

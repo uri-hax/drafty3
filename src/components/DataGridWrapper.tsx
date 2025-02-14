@@ -30,10 +30,10 @@ import type { ColumnData } from '../interfaces/ColumnData';
 interface DataGridWrapperProps {
   columns: GridColumn[];
   filteredData: ColumnData[];
-  onCellEdited: ([col, row]: Item, newValue: EditableGridCell | BubbleCell) => void;
-  onCellActivated: (cell: Item) => void;
-  gridSelection: GridSelection;
-  onGridSelectionChange: (newSelection: GridSelection) => void;
+  onCellEdited?: ([col, row]: Item, newValue: EditableGridCell | BubbleCell) => void;
+  onCellActivated?: (cell: Item) => void;
+  gridSelection?: GridSelection;
+  onGridSelectionChange?: (newSelection: GridSelection) => void;
   gridWidth: number;
   columnSchema: Record<string, string>;
 }
@@ -48,6 +48,8 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
   gridWidth,
   columnSchema,
 }) => {
+  const editable = Boolean(onCellEdited);
+
   const getData = ([col, row]: Item): GridCell => {
     const colKey = columns[col].id as string;
     const cellData = filteredData[row]?.[colKey];
@@ -58,7 +60,7 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
       return {
         kind: GridCellKind.Bubble,
         data: bubbleData,
-        allowOverlay: true,
+        allowOverlay: editable,
       };
     }
 
@@ -68,7 +70,7 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
       kind: GridCellKind.Text,
       data: textData,
       displayData: textData,
-      allowOverlay: true,
+      allowOverlay: editable,
     };
   };
 
@@ -87,6 +89,7 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
       height="100%"
       getRowThemeOverride={(rowIndex: number) => ({
         bgCell: rowIndex % 2 === 0 ? "#ffffff" : "#f0f0f0", 
+        bgBubble: "#6bb6ff",
       })}
     />
   );
