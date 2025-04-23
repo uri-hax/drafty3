@@ -3,6 +3,7 @@ import type { GridColumn } from "@glideapps/glide-data-grid";
 import type { ColumnData } from '../interfaces/ColumnData';
 import { generateOptionsLists, generateColumnWidths } from './constants';
 import yaml from 'js-yaml'; 
+import PocketBase from 'pocketbase'
 
 /*
   Attempt to fetch and parse a YAML schema file that defines the column types.
@@ -137,4 +138,81 @@ export const fetchCsvData = async (
     console.error('Error fetching the CSV file:', error);
     return { gridColumns: [], parsedData: [], optionsLists: {}, columnSchema: {} };
   }
+};
+
+/*
+  Use the PocketBase client instance (pb) to load and pivot Suggestion data
+*/
+export const fetchPocketbaseData = async (
+  pb: PocketBase,
+  gridWidth: number,
+  customWidths: Record<string, string> = {},
+  yamlSchemaFilePath?: string
+): Promise<{
+  gridColumns: GridColumn[];
+  parsedData: ColumnData[];
+  optionsLists: Record<string, string[]>;
+  columnSchema: Record<string, string>;
+}> => {
+  const columnSchema = await fetchYamlSchema(yamlSchemaFilePath);
+
+  const suggestionTypes = await pb.collection("SuggestionType").getFullList({
+    filter: "isActive=true",
+    sort: "columnOrder",
+  });
+
+  const columnsMeta: [string, string][] = suggestionTypes.map((t: any) => [t.id, t.name]);
+
+  const suggestions = await pb.collection("Suggestions").getFullList({
+    filter: "active=true",
+  });
+
+  const grouped = new Map<string, any[]>();
+  for (const s of suggestions) {
+    if (!grouped.has(s.idUniqueID)) grouped.set(s.idUniqueID, []);
+    grouped.get(s.idUniqueID)!.push(s);
+  }
+
+  const parsedData: ColumnData[] = Array.from(grouped.entries()).map(([uniqueId, records]) => {
+    const row: ColumnData = { idUniqueID: uniqueId };
+
+    for (const [typeId, name] of columnsMeta) {
+      const candidates = records.filter((r) => r.idSuggestionType === typeId);
+      let val = "";
+
+      if (candidates.length) {
+        candidates.sort((a, b) => b.confidence - a.confidence);
+        val = candidates[0].suggestion;
+      }
+
+      const colType = columnSchema[name] || "string";
+      let processed: string | string[] = val || "";
+
+      if (typeof processed === "string") {
+        if (colType === "string[]") {
+          processed = processed.includes(",")
+            ? processed.split(",").map((s) => s.trim())
+            : [processed.trim()];
+        } else {
+          processed = processed.trim();
+        }
+      }
+
+      row[name] = processed;
+    }
+
+    return row;
+  });
+
+  const columnKeys = [...columnsMeta.map(([, name]) => name)];
+  const columnWidths = generateColumnWidths(columnKeys, customWidths);
+  const gridColumns: GridColumn[] = columnKeys.map((key) => ({
+    id: key,
+    title: key,
+    width: (parseFloat(columnWidths[key].replace("%", "")) * gridWidth) / 100,
+  }));
+
+  const optionsLists = generateOptionsLists(parsedData);
+
+  return { gridColumns, parsedData, optionsLists, columnSchema };
 };

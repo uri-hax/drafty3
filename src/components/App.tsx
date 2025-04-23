@@ -22,7 +22,7 @@ import "@glideapps/glide-data-grid/dist/index.css";
 import React, { useState, useEffect } from 'react';
 import { Snackbar, Button } from '@mui/material';
 import { CompactSelection, type BubbleCell, type EditableGridCell, type GridSelection, type Item, type GridColumn } from "@glideapps/glide-data-grid";
-import { fetchCsvData } from '../utils/csvParser';
+import { fetchCsvData, fetchPocketbaseData } from '../utils/csvParser';
 import type { ColumnData } from '../interfaces/ColumnData';
 import useWindowWidth from '../hooks/useWindow';
 import Alert from './Alerts';
@@ -31,6 +31,9 @@ import ActionButtons from './ActionButtons';
 import DataGridWrapper from './DataGridWrapper';
 import MultiSelectModal from './MultiSelectModal';
 import AddRowFooter from './AddRowFooter';
+import PocketBase, { type RecordModel } from 'pocketbase';
+
+const pb = new PocketBase('http://127.0.0.1:8090');
 
 const customWidths: Record<string, string> = {
   FullName: "15%",
@@ -77,58 +80,50 @@ export default function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { gridColumns, parsedData, optionsLists, columnSchema } = await fetchCsvData(
-          gridWidth, 
-          customWidths,
-          '/csprofessors.csv',
-          'csprofessors.yaml'
-        );
-
-        console.log('Grid Columns:', gridColumns);   
-        console.log('Parsed Data:', parsedData);  
-        console.log('Options Lists:', optionsLists);     
-        console.log('Column Schema:', columnSchema);     
-
+        const { gridColumns, parsedData, optionsLists, columnSchema } =
+          await fetchPocketbaseData(
+            pb,
+            gridWidth,
+            customWidths,
+            "csprofessors.yaml" 
+          );
+  
+        console.log("Grid Columns:", gridColumns);
+        console.log("Parsed Data:", parsedData);
+        console.log("Options Lists:", optionsLists);
+        console.log("Column Schema:", columnSchema);
+  
         setColumns(gridColumns);
         setData(parsedData);
         setFilteredData(parsedData);
         setOptionsLists(optionsLists);
         setColumnSchema(columnSchema);
-
-        console.log(filteredData);
-
+  
         const params = new URLSearchParams(window.location.search);
         const initialFilters: Record<string, string> = {};
         const columnKeys = Object.keys(parsedData[0] || {});
-
+  
         columnKeys.forEach((name) => {
           const value = params.get(name);
           if (value) {
             initialFilters[name] = value;
           }
         });
-
+  
         setColumnFilters(initialFilters);
-
+  
         const initialNewRowData: ColumnData = {};
-
         for (const key of columnKeys) {
-          if (columnSchema[key] === 'string[]') {
-            initialNewRowData[key] = [];
-          } 
-          else {
-            initialNewRowData[key] = '';
-          }
+          initialNewRowData[key] =
+            columnSchema[key] === "string[]" ? [] : "";
         }
-
+  
         setNewRowData(initialNewRowData);
-
-      } 
-      catch (error) {
-        console.error('Error fetching CSV/YAML data:', error);
+      } catch (error) {
+        console.error("Error fetching data from PocketBase:", error);
       }
     };
-
+  
     fetchData();
   }, [gridWidth]);
  
@@ -196,13 +191,17 @@ export default function App() {
 
   const onCellActivated = (cell: Item) => {
     const[col, row] = cell;
+    console.log("Column: ", col, " Row: ", row);
     const colKey = columns[col].id as string;
     const colType = columnSchema[colKey] || 'string';
+    console.log(cell);
 
     if (colType === 'string[]') {
       setEditingCell({ row, colKey });
       const actualRowIndex = data.indexOf(filteredData[row]);
+      console.log("Column: ", col, " Actual Row: ", actualRowIndex);
       const cellData = data[actualRowIndex][colKey];
+      console.log(cellData);
       setSelectedOptions(Array.isArray(cellData) ? cellData : []);
       setIsOverlayVisible(true);
     }

@@ -1,0 +1,15 @@
+idSuggestionType,idDataType,name,isActive,regex,makesRowUnique,canBeBlank,isFreeEdit,isDate,isLink,isCurrency,isEditable,isPrivate,columnOrder
+1,1,FullName,1,.*,1,0,1,0,0,0,1,0,11
+2,3,University,1,.*,1,0,0,0,0,0,1,0,22
+3,3,Bachelors,1,.*,1,1,1,0,0,0,1,0,66
+4,3,Masters,0,.*,0,1,1,0,0,0,1,0,77
+5,3,Doctorate,1,.*,1,1,1,0,0,0,1,0,88
+6,3,PostDoc,0,.*,0,1,1,0,0,0,1,0,99
+7,1,JoinYear,1,.*,1,1,0,0,0,0,1,0,33
+8,4,Rank,0,.*,0,1,0,0,0,0,1,0,44
+9,2,SubField,1,.*,1,1,0,0,0,0,1,0,55
+10,4,Gender,0,.*,0,1,0,0,0,0,1,0,110
+11,1,PhotoURL,0,.*,0,1,1,0,1,0,1,0,120
+12,1,Sources,0,.*,0,1,0,0,1,0,1,0,130
+13,5,Last Updated By,0,.*,0,0,1,0,0,0,0,0,140
+14,6,Last Updated,0,.*,0,0,0,1,0,0,0,0,150
