@@ -8,7 +8,7 @@ import (
 
 func main() {
     app := pocketbase.New()
-
+    /*
     if err := app.Bootstrap(); err != nil {
         log.Fatal(err)
     }
@@ -158,7 +158,7 @@ func main() {
     // if err := suggestionTypeCSVImport(app); err != nil {
     //     log.Fatal(err)
     // }
-
+    */
     if err := app.Start(); err != nil {
         log.Fatal(err)
     }

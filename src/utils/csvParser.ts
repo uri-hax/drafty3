@@ -118,7 +118,7 @@ export const fetchCsvData = async (
           });
 
           const optionsLists = generateOptionsLists(parsedData);
-          const columnKeys = Object.keys(parsedData[0] || {}).filter((key) => key !== 'UniqueId');
+          const columnKeys = Object.keys(parsedData[0] || {}).filter((key) => key !== 'idUniqueID');
           const columnWidths = generateColumnWidths(columnKeys, customWidths);
 
           const gridColumns: GridColumn[] = columnKeys.map((key) => ({
@@ -142,7 +142,7 @@ export const fetchCsvData = async (
 
 /*
   Use the PocketBase client instance (pb) to load and pivot Suggestion data
-*/
+
 export const fetchPocketbaseData = async (
   pb: PocketBase,
   gridWidth: number,
@@ -216,3 +216,4 @@ export const fetchPocketbaseData = async (
 
   return { gridColumns, parsedData, optionsLists, columnSchema };
 };
+*/

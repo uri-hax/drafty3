@@ -22,7 +22,7 @@ import "@glideapps/glide-data-grid/dist/index.css";
 import React, { useState, useEffect } from 'react';
 import { Snackbar, Button } from '@mui/material';
 import { CompactSelection, type BubbleCell, type EditableGridCell, type GridSelection, type Item, type GridColumn } from "@glideapps/glide-data-grid";
-import { fetchCsvData, fetchPocketbaseData } from '../utils/csvParser';
+import { fetchCsvData } from '../utils/csvParser';
 import type { ColumnData } from '../interfaces/ColumnData';
 import useWindowWidth from '../hooks/useWindow';
 import Alert from './Alerts';
@@ -81,11 +81,11 @@ export default function App() {
     const fetchData = async () => {
       try {
         const { gridColumns, parsedData, optionsLists, columnSchema } =
-          await fetchPocketbaseData(
-            pb,
+          await fetchCsvData(
             gridWidth,
             customWidths,
-            "csprofessors.yaml" 
+            "./suggestions.csv",
+            "csprofessors.yaml"
           );
   
         console.log("Grid Columns:", gridColumns);
@@ -321,7 +321,7 @@ export default function App() {
           columnWidths={customWidths}
         />
       ) : (
-        <div>No columns available. Check your data source.</div>
+        <div></div>
       )}
 
       <div className="grid-container" style={{ flexGrow: 1 }}>

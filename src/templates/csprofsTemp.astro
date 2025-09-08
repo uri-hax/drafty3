@@ -1,53 +1,49 @@
 ---
-import PocketBase from 'pocketbase';
+import fs from 'fs';
+import path from 'path';
+import Papa from 'papaparse';
 
-const pb = new PocketBase('http://127.0.0.1:8090');
+// 1. Read CSV
+const csvPath = path.resolve('./public/suggestions.csv');
+const csvText = fs.readFileSync(csvPath, 'utf-8');
 
-// Fetch all active SuggestionTypes
-const types = await pb.collection("SuggestionType").getFullList({
-  filter: "isActive=true",
-  sort: "columnOrder",
+// 2. Parse CSV with types
+type Row = {
+  idUniqueID: string;
+  [key: string]: string;
+};
+
+const parsed = Papa.parse<Row>(csvText, {
+  header: true,
+  skipEmptyLines: true,
 });
 
-// Fetch all active Suggestions
-const suggestions = await pb.collection("Suggestions").getFullList({
-  filter: "active=true",
-  expand: "idSuggestionType,idUniqueID",
-});
+const rows = parsed.data;
+const columnNames = parsed.meta.fields?.filter(f => f !== 'idUniqueID') ?? [];
 
-// Group suggestions by idUniqueID
-const grouped = new Map();
-for (const s of suggestions) {
-  const uid = s.idUniqueID;
-  if (!grouped.has(uid)) {
-    grouped.set(uid, []);
+// 3. Group by idUniqueID
+const grouped = new Map<string, Row[]>();
+for (const row of rows) {
+  const id = row.idUniqueID;
+
+  if (!grouped.has(id)) {
+    grouped.set(id, []);
   }
-  grouped.get(uid).push(s);
+
+  grouped.get(id)!.push(row);
+  
 }
 ---
 
 <template id="table-data">
   <tbody>
     {Array.from(grouped.entries()).map(([uniqueId, group], rowIndex) => {
-      const suggestionsByType: any = {};
-
-      for (const s of group) {
-        const typeId = s.idSuggestionType;
-        const existing = suggestionsByType[typeId];
-
-        if (!existing || s.confidence > existing.confidence) {
-          suggestionsByType[typeId] = s;
-        }
-      }
 
       return (
         <tr data-id={rowIndex} data-identifier={uniqueId}>
-          {types.map((type) => {
-            const s = suggestionsByType[type.id];
-            return s
-              ? <td id={s.id}>{s.suggestion}</td>
-              : <td></td>;
-          })}
+          {columnNames.map((col) => (
+            <td data-col={group[0]?.[col] ?? ""}></td>
+          ))}
         </tr>
       );
     })}
