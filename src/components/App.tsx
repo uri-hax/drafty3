@@ -84,8 +84,8 @@ export default function App() {
           await fetchCsvData(
             gridWidth,
             customWidths,
-            "./suggestions.csv",
-            "csprofessors.yaml"
+            "/suggestions.csv",
+            "/csprofessors.yaml"
           );
   
         console.log("Grid Columns:", gridColumns);
