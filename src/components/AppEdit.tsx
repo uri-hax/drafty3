@@ -112,7 +112,7 @@ export default function App() {
   }, [columnFilters, columns]);
 
   const handleData = () => {
-    window.location.href = "/csprofs";
+    window.location.href = "/drafty3/csprofs";
   }
 
   const handleEditHistory = () => {
