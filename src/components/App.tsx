@@ -76,8 +76,8 @@ export default function App() {
   });
 
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
-  const base = import.meta.env.BASE_URL; 
-  const asset = (p: string) => `${base}${p.replace(/^\//, '')}`;
+  // const originBase = new URL(import.meta.env.BASE_URL || '/', window.location.origin);
+  // const url = (p: string) => new URL(p.replace(/^\//, ''), originBase).href;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -86,8 +86,8 @@ export default function App() {
           await fetchCsvData(
             gridWidth,
             customWidths,
-            asset('suggestions.csv'),
-            asset('csprofessors.yaml')
+            '/drafty3/suggestions.csv',
+            '/drafty3/csprofessors.yaml'
           );
   
         console.log("Grid Columns:", gridColumns);
@@ -299,7 +299,7 @@ export default function App() {
   };
 
   const handleData = () => {
-    window.location.href = "/csprofs";
+    window.location.href = "/drafty3/csprofs";
   }
 
   const handleEditHistory = () => {

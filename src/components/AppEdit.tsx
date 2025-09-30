@@ -116,7 +116,7 @@ export default function App() {
   }
 
   const handleEditHistory = () => {
-    window.location.href = "/edit-history";
+    window.location.href = "/drafty3/edit-history";
   };
 
   return (
