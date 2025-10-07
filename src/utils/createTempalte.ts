@@ -1,0 +1,58 @@
+import PocketBase from 'pocketbase';
+
+const pb = new PocketBase('http://127.0.0.1:8090');
+
+// Fetch all active SuggestionTypes
+const types = await pb.collection("SuggestionType").getFullList({
+  filter: "isActive=true",
+  sort: "columnOrder",
+});
+
+// Fetch all active Suggestions
+const suggestions = await pb.collection("Suggestions").getFullList({
+  filter: "active=true",
+  expand: "idSuggestionType,idUniqueID",
+});
+
+// Group suggestions by idUniqueID
+const grouped = new Map();
+for (const s of suggestions) {
+  const uid = s.idUniqueID;
+  if (!grouped.has(uid)) {
+    grouped.set(uid, []);
+  }
+  grouped.get(uid).push(s);
+}
+
+function name(params:any) {
+    return `
+<template id="table-data">
+  <tbody>
+    {Array.from(grouped.entries()).map(([uniqueId, group], rowIndex) => {
+      const suggestionsByType: any = {};
+
+      for (const s of group) {
+        const typeId = s.idSuggestionType;
+        const existing = suggestionsByType[typeId];
+
+        if (!existing || s.confidence > existing.confidence) {
+          suggestionsByType[typeId] = s;
+        }
+      }
+
+      return (
+        <tr data-id={rowIndex} data-identifier={uniqueId}>
+          {types.map((type) => {
+            const s = suggestionsByType[type.id];
+            return s
+              ? <td id={s.id}>{s.suggestion}</td>
+              : <td></td>;
+          })}
+        </tr>
+      );
+    })}
+  </tbody>
+</template>
+    `
+}
+

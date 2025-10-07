@@ -6,6 +6,15 @@ import appCssUrl from '../components/App.css?url';
 export const prerender = true;
 ---
 
-<CsProfsTemplate />
-<link rel="stylesheet" href={appCssUrl} />
-<App client:only="react" />
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Glide Minimal Test</title>
+  </head>
+  <body>
+    <CsProfsTemplate />
+    <link rel="stylesheet" href={appCssUrl} />
+    <App client:only="react" />
+  </body>
+</html>
