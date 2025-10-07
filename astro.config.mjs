@@ -7,5 +7,5 @@ export default defineConfig({
     integrations: [react()],
     output: 'static',
     site: 'https://uri-hax.github.io',
-    base: '/drafty3',                  
+    base: "/drafty3/",              
   });

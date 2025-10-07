@@ -1,9 +1,11 @@
 ---
 import CsProfsTemplate from '../templates/csprofsTemp.astro';
-import App from '../components/App';
+import App from '../components/App.tsx';
+import appCssUrl from '../components/App.css?url';
 
 export const prerender = true;
 ---
 
 <CsProfsTemplate />
+<link rel="stylesheet" href={appCssUrl} />
 <App client:only="react" />
