@@ -43,7 +43,7 @@ export default function App() {
         const { gridColumns, parsedData, columnSchema } = await fetchCsvData(
           gridWidth, 
           customWidths,
-          'edit-history.csv',
+          '/drafty3/edit-history.csv',
         ); 
 
         setColumns(gridColumns);
