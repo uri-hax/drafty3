@@ -10,8 +10,7 @@ import (
 )
 
 func main() {
-	// Use SQLite DB named drafty3.db with FK support
-	dsn := "drafty3.db?_pragma=foreign_keys(1)"
+	dsn := "drafty_new.db?_pragma=foreign_keys(1)"
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("open sqlite: %v", err)
@@ -64,5 +63,5 @@ func main() {
 		log.Fatalf("automigrate: %v", err)
 	}
 
-	log.Println("AutoMigrate complete. SQLite database created: drafty3.db")
+	log.Println("AutoMigrate complete. SQLite database created: drafty_new.db")
 }
