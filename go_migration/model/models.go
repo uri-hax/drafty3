@@ -26,18 +26,25 @@ func (DataType) TableName() string { return "DataType" }
 type DatabaitCreateType struct {
 	IDDatabaitCreateType int64   `gorm:"column:idDatabaitCreateType;primaryKey;autoIncrement"`
 	Type                 *string `gorm:"column:type"`
+
+	Databaits []Databaits `gorm:"foreignKey:IDDatabaitCreateType;references:IDDatabaitCreateType"`
 }
 func (DatabaitCreateType) TableName() string { return "DatabaitCreateType" }
 
 type DatabaitNextAction struct {
 	IDDatabaitNextAction int64   `gorm:"column:idDatabaitNextAction;primaryKey;autoIncrement"`
 	Action               *string `gorm:"column:action"`
+
+	DatabaitTweets []DatabaitTweet `gorm:"foreignKey:NextAction;references:IDDatabaitNextAction"`
+	Databaits      []Databaits     `gorm:"foreignKey:NextAction;references:IDDatabaitNextAction"`
 }
 func (DatabaitNextAction) TableName() string { return "DatabaitNextAction" }
 
 type DatabaitTemplateType struct {
 	IDDatabaitTemplateType int64   `gorm:"column:idDatabaitTemplateType;primaryKey;autoIncrement"`
 	Template               *string `gorm:"column:template"`
+
+	Databaits []Databaits `gorm:"foreignKey:IDDatabaitTemplateType;references:IDDatabaitTemplateType"`
 }
 func (DatabaitTemplateType) TableName() string { return "DatabaitTemplateType" }
 
@@ -60,6 +67,8 @@ func (EditSuggestion) TableName() string { return "Edit_Suggestion" }
 type EntryType struct {
 	IDEntryType int64   `gorm:"column:idEntryType;primaryKey;autoIncrement"`
 	Type        *string `gorm:"column:type"`
+
+	Edits []Edit `gorm:"foreignKey:IDEntryType;references:IDEntryType"`
 }
 func (EntryType) TableName() string { return "EntryType" }
 
@@ -68,6 +77,27 @@ type Interaction struct {
 	IDSession         int64     `gorm:"column:idSession;not null;index:fk_Interaction_Session1_idx"`
 	IDInteractionType int64     `gorm:"column:idInteractionType;not null;index:fk_Interaction_InteractionType1_idx"`
 	Timestamp         time.Time `gorm:"column:timestamp;default:CURRENT_TIMESTAMP"`
+
+	Clicks          []Click          `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	DoubleClicks    []DoubleClick    `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	SelectRanges    []SelectRange    `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	Edits           []Edit           `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	DatabaitTweets  []DatabaitTweet  `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	Databaits       []Databaits      `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	DatabaitVisits  []DatabaitVisit  `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	HelpUsEntries   []HelpUs         `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	Searches        []Search         `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	SearchMultis    []SearchMulti    `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	Sorts           []Sort           `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	Copies          []Copy           `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	Pastes          []Paste          `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	SearchGoogles   []SearchGoogle   `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	Comments        []Comments       `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	CommentVotes    []CommentVote    `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	CommentsViews   []CommentsView   `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	ViewChanges     []ViewChange     `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	Visits          []Visit          `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
+	CopyColumns     []CopyColumn     `gorm:"foreignKey:IDInteraction;references:IDInteraction"`
 }
 func (Interaction) TableName() string { return "Interaction" }
 
@@ -81,9 +111,6 @@ type DatabaitTweet struct {
 	Created             time.Time  `gorm:"column:created;not null;default:CURRENT_TIMESTAMP"`
 	NextActionTimestamp *time.Time `gorm:"column:nextActionTimestamp"`
 	NextAction          *int64     `gorm:"column:nextAction"`
-
-	InteractionRef Interaction        `gorm:"constraint:Name:_fk_idInteraction_DatabaitTweet_t615das;foreignKey:IDInteraction;references:IDInteraction"`
-	NextActionRef  DatabaitNextAction `gorm:"constraint:Name:_fk_nextAction_DatabaitTweet_t615das;foreignKey:NextAction;references:IDDatabaitNextAction"`
 }
 func (DatabaitTweet) TableName() string { return "DatabaitTweet" }
 
@@ -93,15 +120,14 @@ type Edit struct {
 	IDEntryType   int64  `gorm:"column:idEntryType;not null"`
 	Mode          string `gorm:"column:mode;not null;default:normal"`
 	IsCorrect     *int64 `gorm:"column:isCorrect;default:2"`
-
-	EntryTypeRef   EntryType   `gorm:"constraint:Name:_fk_idEntryType_from_edit_asllhg1233;foreignKey:IDEntryType;references:IDEntryType"`
-	InteractionRef Interaction `gorm:"constraint:Name:_fk_idInteraction_from_edit_asdlhg1235;foreignKey:IDInteraction;references:IDInteraction"`
 }
 func (Edit) TableName() string { return "Edit" }
 
 type InteractionType struct {
 	IDInteractionType int64   `gorm:"column:idInteractionType;primaryKey;autoIncrement"`
 	Interaction       *string `gorm:"column:interaction"`
+
+	Interactions []Interaction `gorm:"foreignKey:IDInteractionType;references:IDInteractionType"`
 }
 func (InteractionType) TableName() string { return "InteractionType" }
 
@@ -114,6 +140,8 @@ type Profile struct {
 	PasswordRaw *string   `gorm:"column:passwordRaw"`
 	DateCreated time.Time `gorm:"column:date_created;default:CURRENT_TIMESTAMP"`
 	DateUpdated time.Time `gorm:"column:date_updated;default:CURRENT_TIMESTAMP"`
+
+	Sessions []Session `gorm:"foreignKey:IDProfile;references:IDProfile"`
 }
 func (Profile) TableName() string { return "Profile" }
 
@@ -128,12 +156,17 @@ func (RemoveUserData) TableName() string { return "RemoveUserData" }
 type Role struct {
 	IDRole int64  `gorm:"column:idRole;primaryKey;autoIncrement"`
 	Role   string `gorm:"column:role;not null"`
+
+	Profiles []Profile `gorm:"foreignKey:IDRole;references:IDRole"`
 }
 func (Role) TableName() string { return "Role" }
 
 type SearchType struct {
 	IDSearchType int64  `gorm:"column:idSearchType;primaryKey;autoIncrement"`
 	Type         string `gorm:"column:type;not null"`
+
+	Searches     []Search     `gorm:"foreignKey:IDSearchType;references:IDSearchType"`
+	SearchMultis []SearchMulti`gorm:"foreignKey:IDSearchType;references:IDSearchType"`
 }
 func (SearchType) TableName() string { return "SearchType" }
 
@@ -167,15 +200,19 @@ type SuggestionType struct {
 	IsEditable       int64   `gorm:"column:isEditable;not null;default:1"`
 	IsPrivate        int64   `gorm:"column:isPrivate;not null;default:0"`
 	ColumnOrder      *int64  `gorm:"column:columnOrder"`
+
+	Suggestions        []Suggestions        `gorm:"foreignKey:IDSuggestionType;references:IDSuggestionType"`
+	Searches           []Search             `gorm:"foreignKey:IDSuggestionType;references:IDSuggestionType"`
+	SearchMultis       []SearchMulti        `gorm:"foreignKey:IDSuggestionType;references:IDSuggestionType"`
+	Sorts              []Sort               `gorm:"foreignKey:IDSuggestionType;references:IDSuggestionType"`
+	CopyColumns        []CopyColumn         `gorm:"foreignKey:IDSuggestionType;references:IDSuggestionType"`
+	SuggestionTypeVals []SuggestionTypeValues `gorm:"foreignKey:IDSuggestionType;references:IDSuggestionType"`
 }
 func (SuggestionType) TableName() string { return "SuggestionType" }
 
 type CopyColumn struct {
 	IDInteraction    int64 `gorm:"column:idInteraction;primaryKey"`
 	IDSuggestionType int64 `gorm:"column:idSuggestionType;primaryKey"`
-
-	InteractionRef    Interaction    `gorm:"constraint:Name:_fk_idInteraction_CopyColumn_alsdfh12356;foreignKey:IDInteraction;references:IDInteraction"`
-	SuggestionTypeRef SuggestionType `gorm:"constraint:Name:_fk_idSuggestionType_CopyColumn_alsdfh12356;foreignKey:IDSuggestionType;references:IDSuggestionType"`
 }
 func (CopyColumn) TableName() string { return "CopyColumn" }
 
@@ -188,10 +225,6 @@ type Search struct {
 	IsFromURL        int64   `gorm:"column:isFromUrl;not null;default:0"`
 	Value            *string `gorm:"column:value"`
 	MatchedValues    []byte  `gorm:"column:matchedValues"`
-
-	InteractionRef    Interaction    `gorm:"constraint:Name:fk_Search_Interaction1;foreignKey:IDInteraction;references:IDInteraction"`
-	SuggestionTypeRef SuggestionType `gorm:"constraint:Name:search_ibfk_1;foreignKey:IDSuggestionType;references:IDSuggestionType"`
-	SearchTypeRef     SearchType     `gorm:"constraint:Name:fk_id_search_type_1;foreignKey:IDSearchType;references:IDSearchType"`
 }
 func (Search) TableName() string { return "Search" }
 
@@ -200,10 +233,6 @@ type SearchMulti struct {
 	IDSuggestionType int64   `gorm:"column:idSuggestionType;primaryKey"`
 	IDSearchType     int64   `gorm:"column:idSearchType;not null;default:3"`
 	Value            *string `gorm:"column:value"`
-
-	SuggestionTypeRef SuggestionType `gorm:"constraint:Name:SearchMulti_ibfk_11231;foreignKey:IDSuggestionType;references:IDSuggestionType"`
-	InteractionRef    Interaction    `gorm:"constraint:Name:fk_SearchMulti_Interaction112312;foreignKey:IDInteraction;references:IDInteraction"`
-	SearchTypeRef     SearchType     `gorm:"constraint:Name:fk_id_Search_type_112312;foreignKey:IDSearchType;references:IDSearchType"`
 }
 func (SearchMulti) TableName() string { return "SearchMulti" }
 
@@ -213,9 +242,6 @@ type Sort struct {
 	IsAsc            int64 `gorm:"column:isAsc;not null;default:1"`
 	IsTrigger        int64 `gorm:"column:isTrigger;not null;default:1"`
 	IsMulti          int64 `gorm:"column:isMulti;not null;default:0"`
-
-	InteractionRef    Interaction    `gorm:"constraint:Name:_fk_idInteraction_1827365;foreignKey:IDInteraction;references:IDInteraction"`
-	SuggestionTypeRef SuggestionType `gorm:"constraint:Name:_fk_idSuggestionType_2827365;foreignKey:IDSuggestionType;references:IDSuggestionType"`
 }
 func (Sort) TableName() string { return "Sort" }
 
@@ -230,6 +256,14 @@ type UniqueId struct {
 	IDUniqueID int64   `gorm:"column:idUniqueID;primaryKey;autoIncrement"`
 	Active     int64   `gorm:"column:active;not null;default:1"`
 	Notes      *string `gorm:"column:notes"`
+
+	CommentsList      []Comments      `gorm:"foreignKey:IDUniqueID;references:IDUniqueID"`
+	CommentsViews     []CommentsView  `gorm:"foreignKey:IDUniqueID;references:IDUniqueID"`
+	Databaits         []Databaits     `gorm:"foreignKey:IDUniqueID;references:IDUniqueID"`
+	EditDelRows       []EditDelRow    `gorm:"foreignKey:IDUniqueID;references:IDUniqueID"`
+	HelpUsEntries     []HelpUs        `gorm:"foreignKey:IDUniqueID;references:IDUniqueID"`
+	SuggestionsList   []Suggestions   `gorm:"foreignKey:IDUniqueID;references:IDUniqueID"`
+	SearchGoogles     []SearchGoogle  `gorm:"foreignKey:IDUniqueID;references:IDUniqueID"`
 }
 func (UniqueId) TableName() string { return "UniqueId" }
 
@@ -241,8 +275,7 @@ type Comments struct {
 	VoteUp        int64  `gorm:"column:voteUp;not null;default:0"`
 	VoteDown      int64  `gorm:"column:voteDown;not null;default:0"`
 
-	InteractionRef Interaction `gorm:"constraint:Name:Comments___fk_idInteraction_ksjdfba87aidsb;foreignKey:IDInteraction;references:IDInteraction"`
-	UniqueIDRef    UniqueId    `gorm:"constraint:Name:Comments___fk_iduniqid_oq83eyfgqwuyofhba;foreignKey:IDUniqueID;references:IDUniqueID"`
+	CommentVotes []CommentVote `gorm:"foreignKey:IDComment;references:IDComment"`
 }
 func (Comments) TableName() string { return "Comments" }
 
@@ -252,9 +285,6 @@ type CommentVote struct {
 	IDComment     int64   `gorm:"column:idComment;not null"`
 	Vote          string  `gorm:"column:vote;not null;check:vote IN ('voteUp','voteUp-deselect','voteDown','voteDown-deselect')"`
 	Selected      *int64  `gorm:"column:selected"`
-
-	CommentRef     Comments     `gorm:"constraint:Name:table_name___fk_comments_akhsdfashjld;foreignKey:IDComment;references:IDComment"`
-	InteractionRef Interaction  `gorm:"constraint:Name:table_name___fk_interaction_akdhfa;foreignKey:IDInteraction;references:IDInteraction"`
 }
 func (CommentVote) TableName() string { return "CommentVote" }
 
@@ -262,9 +292,6 @@ type CommentsView struct {
 	IDCommentsView int64  `gorm:"column:idCommentsView;primaryKey;autoIncrement"`
 	IDUniqueID     *int64 `gorm:"column:idUniqueID"`
 	IDInteraction  *int64 `gorm:"column:idInteraction"`
-
-	UniqueIDRef    UniqueId    `gorm:"constraint:Name:CommentsView___fk_comments_alksdhfga1231;foreignKey:IDUniqueID;references:IDUniqueID"`
-	InteractionRef Interaction `gorm:"constraint:Name:CommentsView___fk_interaction_aljhsdfg5123;foreignKey:IDInteraction;references:IDInteraction"`
 }
 func (CommentsView) TableName() string { return "CommentsView" }
 
@@ -282,11 +309,7 @@ type Databaits struct {
 	Closed                 time.Time `gorm:"column:closed;not null;default:'0000-00-00 00:00:00'"`
 	NextAction             *int64    `gorm:"column:nextAction"`
 
-	NextActionRef   DatabaitNextAction   `gorm:"constraint:Name:_fk_databaits_nextAction_b6345das;foreignKey:NextAction;references:IDDatabaitNextAction"`
-	CreateTypeRef   DatabaitCreateType   `gorm:"constraint:Name:_fk_idDatabaitCreateType_b6345das;foreignKey:IDDatabaitCreateType;references:IDDatabaitCreateType"`
-	TemplateTypeRef DatabaitTemplateType `gorm:"constraint:Name:_fk_idDatabaitTemplateType_b6345das;foreignKey:IDDatabaitTemplateType;references:IDDatabaitTemplateType"`
-	InteractionRef  Interaction          `gorm:"constraint:Name:_fk_idInteraction_Databaits_a6a3344;foreignKey:IDInteraction;references:IDInteraction"`
-	UniqueIDRef     UniqueId             `gorm:"constraint:Name:_fk_idUniqueID_Databaits_b111edss;foreignKey:IDUniqueID;references:IDUniqueID"`
+	DatabaitVisits []DatabaitVisit `gorm:"foreignKey:IDDatabait;references:IDDatabait"`
 }
 func (Databaits) TableName() string { return "Databaits" }
 
@@ -294,9 +317,6 @@ type DatabaitVisit struct {
 	IDInteraction int64   `gorm:"column:idInteraction;not null;uniqueIndex:_unique_id_interaction_databaitvisit"`
 	IDDatabait    int64   `gorm:"column:idDatabait;not null"`
 	Source        *string `gorm:"column:source"`
-
-	DatabaitRef    Databaits   `gorm:"constraint:Name:_fk_idDatabait_DatabaitVisit_b123gda;foreignKey:IDDatabait;references:IDDatabait"`
-	InteractionRef Interaction `gorm:"constraint:Name:_fk_idInteraction_DatabaitVisit_asdhjk16341;foreignKey:IDInteraction;references:IDInteraction"`
 }
 func (DatabaitVisit) TableName() string { return "DatabaitVisit" }
 
@@ -304,9 +324,6 @@ type EditDelRow struct {
 	IDUniqueID int64  `gorm:"column:idUniqueID;not null"`
 	IDEdit     int64  `gorm:"column:idEdit;not null"`
 	Comment    string `gorm:"column:comment;not null"`
-
-	EditRef     Edit     `gorm:"constraint:Name:_fk_edit_akjdhaas;foreignKey:IDEdit;references:IDEdit"`
-	UniqueIDRef UniqueId `gorm:"constraint:Name:_fk_UniqueID_1027836asda;foreignKey:IDUniqueID;references:IDUniqueID"`
 }
 func (EditDelRow) TableName() string { return "Edit_DelRow" }
 
@@ -321,9 +338,6 @@ type HelpUs struct {
 	Answered      time.Time `gorm:"column:answered;not null;default:'0000-00-00 00:00:00'"`
 	ShowAnother   time.Time `gorm:"column:showAnother;not null;default:'0000-00-00 00:00:00'"`
 	Closed        time.Time `gorm:"column:closed;not null;default:'0000-00-00 00:00:00'"`
-
-	InteractionRef Interaction `gorm:"constraint:Name:HelpUs___fk_interaction_idInteraction;foreignKey:IDInteraction;references:IDInteraction"`
-	UniqueIDRef    UniqueId    `gorm:"constraint:Name:HelpUs___fk_interaction_idUniqueID;foreignKey:IDUniqueID;references:IDUniqueID"`
 }
 func (HelpUs) TableName() string { return "HelpUs" }
 
@@ -333,21 +347,21 @@ type Suggestions struct {
 	IDUniqueID       int64     `gorm:"column:idUniqueID;not null;index:fk_Suggestion_UniqueID_idx"`
 	IDProfile        int64     `gorm:"column:idProfile;not null;default:2"`
 	Suggestion       string    `gorm:"column:suggestion;not null;default:''"`
-	Active           int64     `gorm:"column:active;not null;default:1"`
+	Active           *int64    `gorm:"column:active;not null;default:1"`
 	Confidence       *int64    `gorm:"column:confidence"`
 	LastUpdated      time.Time `gorm:"column:last_updated;not null;default:CURRENT_TIMESTAMP"`
 
-	SuggestionTypeRef SuggestionType `gorm:"constraint:Name:fk_idSuggestionType_123687;foreignKey:IDSuggestionType;references:IDSuggestionType"`
-	UniqueIDRef       UniqueId       `gorm:"constraint:Name:fk_unique_row_id;foreignKey:IDUniqueID;references:IDUniqueID"`
+	Copies        []Copy        `gorm:"foreignKey:IDSuggestion;references:IDSuggestion"`
+	EditNewRows   []EditNewRow  `gorm:"foreignKey:IDSuggestion;references:IDSuggestion"`
+	SearchGoogleR []SearchGoogle`gorm:"foreignKey:IDSuggestion;references:IDSuggestion"`
+	PastesCopied  []Paste       `gorm:"foreignKey:CopyCellIDSuggestion;references:IDSuggestion"`
+	PastesPasted  []Paste       `gorm:"foreignKey:PasteCellIDSuggestion;references:IDSuggestion"`
 }
 func (Suggestions) TableName() string { return "Suggestions" }
 
 type Copy struct {
 	IDInteraction int64 `gorm:"column:idInteraction;primaryKey"`
 	IDSuggestion  int64 `gorm:"column:idSuggestion;primaryKey"`
-
-	InteractionRef Interaction `gorm:"constraint:Name:_fk_idInteraction_4447654;foreignKey:IDInteraction;references:IDInteraction"`
-	SuggestionRef  Suggestions `gorm:"constraint:Name:_fk_idSuggestion_4417654;foreignKey:IDSuggestion;references:IDSuggestion"`
 }
 func (Copy) TableName() string { return "Copy" }
 
@@ -355,9 +369,6 @@ type EditNewRow struct {
 	IDEdit       int64 `gorm:"column:idEdit;not null;uniqueIndex:idEdit_"`
 	IDSuggestion int64 `gorm:"column:idSuggestion;not null;uniqueIndex:idEdit_"`
 	IsCorrect    int64 `gorm:"column:isCorrect;not null;default:2"`
-
-	EditRef       Edit        `gorm:"constraint:Name:_fk_idEdit_from_Edit_NewRow_asdkl123;foreignKey:IDEdit;references:IDEdit"`
-	SuggestionRef Suggestions `gorm:"constraint:Name:_fk_idSuggestion_from_Edit_NewRow_asdkl123;foreignKey:IDSuggestion;references:IDSuggestion"`
 }
 func (EditNewRow) TableName() string { return "Edit_NewRow" }
 
@@ -368,9 +379,6 @@ type Paste struct {
 	CopyCellValue         *string `gorm:"column:copyCellValue"`
 	PasteCellIDSuggestion int64   `gorm:"column:pasteCellIdSuggestion;not null"`
 	PasteCellValue        string  `gorm:"column:pasteCellValue;not null"`
-
-	CopySuggestionRef  Suggestions `gorm:"constraint:Name:_fk_copy_id_suggestion_197823;foreignKey:CopyCellIDSuggestion;references:IDSuggestion"`
-	PasteSuggestionRef Suggestions `gorm:"constraint:Name:_fk_paste_id_suggestion_197823;foreignKey:PasteCellIDSuggestion;references:IDSuggestion"`
 }
 func (Paste) TableName() string { return "Paste" }
 
@@ -379,10 +387,6 @@ type SearchGoogle struct {
 	IDUniqueID    int64  `gorm:"column:idUniqueID;not null"`
 	IDSuggestion  int64  `gorm:"column:idSuggestion;not null"`
 	SearchValues  string `gorm:"column:searchValues;not null"`
-
-	InteractionRef Interaction `gorm:"constraint:Name:_fk_idInteraction_SearchGoogle_a645das;foreignKey:IDInteraction;references:IDInteraction"`
-	SuggestionRef  Suggestions `gorm:"constraint:Name:_fk_idSuggestion_SearchGoogle_a645das;foreignKey:IDSuggestion;references:IDSuggestion"`
-	UniqueIDRef    UniqueId    `gorm:"constraint:Name:_fk_idUniqueID_SearchGoogle_a645das;foreignKey:IDUniqueID;references:IDUniqueID"`
 }
 func (SearchGoogle) TableName() string { return "SearchGoogle" }
 
@@ -398,8 +402,6 @@ type Visit struct {
 	Source        *string `gorm:"column:source"`
 	SearchCol     *string `gorm:"column:searchCol"`
 	SearchVal     *string `gorm:"column:searchVal"`
-
-	InteractionRef Interaction `gorm:"constraint:Name:Visit___fk_interaction;foreignKey:IDInteraction;references:IDInteraction"`
 }
 func (Visit) TableName() string { return "Visit" }
 

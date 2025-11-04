@@ -6,11 +6,11 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"drafty3/model" 
+	"drafty3/go_migration/model" 
 )
 
 func main() {
-	dsn := "drafty_new.db?_pragma=foreign_keys(1)"
+	dsn := "db/drafty_gorm.db?_pragma=foreign_keys(1)"
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("open sqlite: %v", err)
