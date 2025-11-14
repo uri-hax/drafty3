@@ -9,6 +9,9 @@ import (
 	"gorm.io/gorm"
 
 	"drafty3/endpoints/handler"
+
+	esession "github.com/labstack/echo-contrib/session" 
+	"github.com/gorilla/sessions"                       
 )
 
 func main() {
@@ -26,6 +29,9 @@ func main() {
 
 	// create echo instance
 	e := echo.New()
+
+	// use session middleware
+	e.Use(esession.Middleware(sessions.NewCookieStore([]byte("temp_secret_key"))))
 
 	// create handlers with db
 	suggestionsHandler := handler.NewSuggestionsHandler(db)
@@ -68,7 +74,7 @@ func main() {
 	searchGoogleHandler := handler.NewSearchGoogleHandler(db)
 	viewChangeHandler := handler.NewViewChangeHandler(db)
 	visitHandler := handler.NewVisitHandler(db)
-	sessionsStoreHandler := handler.NewSessionsHandler(db)
+	sessionsHandler := handler.NewSessionsHandler(db)
 
 	// set up /api routes
 	api := e.Group("/api")
@@ -235,8 +241,8 @@ func main() {
 	api.POST("/visits", visitHandler.CreateVisit)
 
 	// Sessions store (sessions table)
-	api.GET("/sessionsstore/:id", sessionsStoreHandler.GetSessions)
-	api.POST("/sessionsstore", sessionsStoreHandler.CreateSessions)
+	api.GET("/sessions/:id", sessionsHandler.GetSessions)
+	api.POST("/sessions", sessionsHandler.CreateSessions)
 
 	// start server
 	log.Println("Server running on http://localhost:8080")

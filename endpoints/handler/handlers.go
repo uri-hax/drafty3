@@ -2,11 +2,15 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 
 	"drafty3/go_migration/model"
+
+	esession "github.com/labstack/echo-contrib/session"
+	"github.com/gorilla/sessions"
 )
 
 // SUGGESTIONS HANDLER
@@ -2196,24 +2200,62 @@ func (h *SessionsHandler) GetSessions(c echo.Context) error {
 
 // CreateSessions handles POST /api/sessionsstore
 func (h *SessionsHandler) CreateSessions(c echo.Context) error {
-	// bind request JSON to Sessions struct
-	var s model.Sessions
-	if err := c.Bind(&s); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":  "invalid request body",
-			"detail": err.Error(),
-		})
-	}
-
-	// insert into DB
-	if err := h.DB.Create(&s).Error; err != nil {
+	// get cookie session via middleware
+	sess, err := esession.Get("session", c)
+	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create sessions",
+			"error": "failed to read cookie session",
+		})
+	}
+
+	// set cookie expiration to 20 minutes
+	const expiration = 20 * time.Minute
+
+	// set session options
+	sess.Options = &sessions.Options{
+		Path:     "/",
+		MaxAge:   int(expiration.Seconds()),
+		HttpOnly: true,
+	}
+
+	// get current time
+	now := time.Now().Unix()
+
+	// try to reuse existing DB session
+	if val, ok := sess.Values["session_id"].(int64); ok && val != 0 {
+		var existing model.Sessions
+		if err := h.DB.First(&existing, "session_id = ?", val).Error; err == nil {
+			// check if expires time is in the future compared to now
+			if existing.Expires > now {
+				// if so return the existing one
+				return c.JSON(http.StatusOK, existing)
+			}
+		}
+	}
+
+	// create a new DB session
+	newSession := model.Sessions{
+		Expires: time.Now().Add(expiration).Unix(),
+		Data:    nil,
+	}
+
+	// try to add it to the DB
+	if err := h.DB.Create(&newSession).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to create DB session",
 			"detail": err.Error(),
 		})
 	}
 
-	// return created row
-	return c.JSON(http.StatusCreated, s)
+	// store new ID in cookie
+	sess.Values["session_id"] = newSession.SessionID
+	if err := sess.Save(c.Request(), c.Response()); err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error": "failed to save cookie session",
+		})
+	}
+
+	// return the new session
+	return c.JSON(http.StatusOK, newSession)
 }
 

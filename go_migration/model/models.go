@@ -406,7 +406,7 @@ type Visit struct {
 func (Visit) TableName() string { return "Visit" }
 
 type Sessions struct {
-	SessionID string  `gorm:"column:session_id;primaryKey"`
+	SessionID int64   `gorm:"column:session_id;primaryKey;autoIncrement"`
 	Expires   int64   `gorm:"column:expires;not null"`
 	Data      *string `gorm:"column:data"`
 }

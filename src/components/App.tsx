@@ -31,9 +31,8 @@ import ActionButtons from './ActionButtons';
 import DataGridWrapper from './DataGridWrapper';
 import MultiSelectModal from './MultiSelectModal';
 import AddRowFooter from './AddRowFooter';
-import PocketBase, { type RecordModel } from 'pocketbase';
-
-const pb = new PocketBase('http://127.0.0.1:8090');
+import { ensureSession, type BackendSession } from "../lib/sessions";
+import { recordCellClick, /*recordCellEdit, recordColumnSearch, recordRowAdd, recordRowDelete*/ } from "../lib/interactions"
 
 const customWidths: Record<string, string> = {
   FullName: "15%",
@@ -53,6 +52,12 @@ export default function App() {
       newPortalDiv.id = 'portal';
       document.body.appendChild(newPortalDiv);
     }
+  }, []);
+
+  const [session, setSession] = useState<BackendSession | null>(null);
+
+  useEffect(() => {
+    ensureSession().then(setSession).catch(console.error);
   }, []);
 
   const gridWidth = useWindowWidth();
@@ -122,7 +127,7 @@ export default function App() {
   
         setNewRowData(initialNewRowData);
       } catch (error) {
-        console.error("Error fetching data from PocketBase:", error);
+        console.error("Error fetching data:", error);
       }
     };
   
@@ -192,11 +197,21 @@ export default function App() {
   }, [columnSchema, newRowData]);
 
   const onCellActivated = (cell: Item) => {
-    const[col, row] = cell;
+    if (!session) {
+      return;
+    }
+
+    const [col, row] = cell;
     console.log("Column: ", col, " Row: ", row);
+
+    const actualRowIndex = data.indexOf(filteredData[row]);
+    const rowData = data[actualRowIndex];
+    const idSuggestion = actualRowIndex;
+    recordCellClick(session.SessionID, idSuggestion, rowData);
+
     const colKey = columns[col].id as string;
-    const colType = columnSchema[colKey] || 'string';
-    console.log(cell);
+    const colType = columnSchema[colKey] || "string";
+    console.log(cell)
 
     if (colType === 'string[]') {
       setEditingCell({ row, colKey });
