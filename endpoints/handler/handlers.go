@@ -183,18 +183,65 @@ func (h *ClickHandler) GetClick(c echo.Context) error {
 	return c.JSON(http.StatusOK, click)
 }
 
+// struct of what we expect from front end with info to make rows in Interaction and Click
+type createClickPayload struct {
+	IDInteractionType int64   `json:"IDInteractionType"`
+	IDSuggestion      int64   `json:"IDSuggestion"`
+	RowValues         *string `json:"RowValues"`
+}
+
 // CreateClick handles POST /api/clicks
 func (h *ClickHandler) CreateClick(c echo.Context) error {
-	// bind request JSON to Click struct
-	var click model.Click
-	if err := c.Bind(&click); err != nil {
+	// read the cookie based session
+	sess, err := esession.Get("session", c)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to read cookie session",
+			"detail": err.Error(),
+		})
+	}
+
+	// extract session_id from cookie from whatever form it's in
+	var sessionID int64
+	if raw, ok := sess.Values["session_id"]; ok {
+		switch v := raw.(type) {
+		case int64:
+			sessionID = v
+		case int:
+			sessionID = int64(v)
+		case float64:
+			sessionID = int64(v)
+		}
+	}
+
+	// bind request JSON filled with info for Interaction and Click
+	var payload createClickPayload
+	if err := c.Bind(&payload); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
 			"detail": err.Error(),
 		})
 	}
 
-	// insert into DB
+	// create Interaction using IDSession from cookie
+	interaction := model.Interaction{
+		IDSession:         sessionID,
+		IDInteractionType: payload.IDInteractionType,
+		// Timestamp is default
+	}
+	if err := h.DB.Create(&interaction).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to create interaction",
+			"detail": err.Error(),
+		})
+	}
+
+	// create Click linked to this Interaction
+	click := model.Click{
+		IDInteraction: interaction.IDInteraction,
+		IDSuggestion:  payload.IDSuggestion,
+		RowValues:     payload.RowValues,
+	}
 	if err := h.DB.Create(&click).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error":  "failed to create click",
@@ -202,7 +249,7 @@ func (h *ClickHandler) CreateClick(c echo.Context) error {
 		})
 	}
 
-	// return created row
+	// return new row in click
 	return c.JSON(http.StatusCreated, click)
 }
 
@@ -714,18 +761,67 @@ func (h *EditHandler) GetEdit(c echo.Context) error {
 	return c.JSON(http.StatusOK, edit)
 }
 
+// struct of what we expect from front end with info to make rows in Interaction and Click
+type createEditPayload struct {
+	IDInteractionType int64   `json:"IDInteractionType"`
+	IDEntryType       int64   `json:"IDEntryType"`
+	Mode              string  `json:"Mode"`           
+	IsCorrect         int64  `json:"IsCorrect"`        
+}
+
 // CreateEdit handles POST /api/edits
 func (h *EditHandler) CreateEdit(c echo.Context) error {
-	// bind request JSON to Edit struct
-	var edit model.Edit
-	if err := c.Bind(&edit); err != nil {
+	// read the cookie based session
+	sess, err := esession.Get("session", c)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to read cookie session",
+			"detail": err.Error(),
+		})
+	}
+
+	// extract session_id from cookie from whatever form it's in
+	var sessionID int64
+	if raw, ok := sess.Values["session_id"]; ok {
+		switch v := raw.(type) {
+		case int64:
+			sessionID = v
+		case int:
+			sessionID = int64(v)
+		case float64:
+			sessionID = int64(v)
+		}
+	}
+
+	// bind request JSON filled with info for Interaction and Edit
+	var payload createEditPayload
+	if err := c.Bind(&payload); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
 			"detail": err.Error(),
 		})
 	}
 
-	// insert into DB
+	// create Interaction using IDSession from cookie
+	interaction := model.Interaction{
+		IDSession:         sessionID,
+		IDInteractionType: payload.IDInteractionType,
+		// Timestamp is default
+	}
+	if err := h.DB.Create(&interaction).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to create interaction",
+			"detail": err.Error(),
+		})
+	}
+
+	// create Edit linked to this Interaction
+	edit := model.Edit{
+		IDInteraction: interaction.IDInteraction,
+		IDEntryType:   payload.IDEntryType,
+		Mode:          payload.Mode,
+		IsCorrect:     payload.IsCorrect,
+	}
 	if err := h.DB.Create(&edit).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error":  "failed to create edit",
@@ -733,7 +829,7 @@ func (h *EditHandler) CreateEdit(c echo.Context) error {
 		})
 	}
 
-	// return created row
+	// return new row in edit
 	return c.JSON(http.StatusCreated, edit)
 }
 
@@ -1055,59 +1151,6 @@ func (h *SelectRangeHandler) CreateSelectRange(c echo.Context) error {
 	return c.JSON(http.StatusCreated, sr)
 }
 
-// SESSION HANDLER
-
-// SessionHandler holds DB connection
-type SessionHandler struct {
-	DB *gorm.DB
-}
-
-// NewSessionHandler returns a new SessionHandler for the given DB
-func NewSessionHandler(db *gorm.DB) *SessionHandler {
-	return &SessionHandler{DB: db}
-}
-
-// GetSession handles GET /api/sessions/:id
-func (h *SessionHandler) GetSession(c echo.Context) error {
-	// lookup row by idSession
-	id := c.Param("id")
-
-	// try to find the row and error if can't
-	var session model.Session
-	if err := h.DB.First(&session, "idSession = ?", id).Error; err != nil {
-		return c.JSON(http.StatusNotFound, echo.Map{
-			"error": "Session not found",
-			"id":    id,
-		})
-	}
-
-	// return the row
-	return c.JSON(http.StatusOK, session)
-}
-
-// CreateSession handles POST /api/sessions
-func (h *SessionHandler) CreateSession(c echo.Context) error {
-	// bind request JSON to Session struct
-	var session model.Session
-	if err := c.Bind(&session); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":  "invalid request body",
-			"detail": err.Error(),
-		})
-	}
-
-	// insert into DB
-	if err := h.DB.Create(&session).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create session",
-			"detail": err.Error(),
-		})
-	}
-
-	// return created row
-	return c.JSON(http.StatusCreated, session)
-}
-
 // SUGGESTIONTYPE HANDLER
 
 // SuggestionTypeHandler holds DB connection
@@ -1244,18 +1287,76 @@ func (h *SearchHandler) GetSearch(c echo.Context) error {
 	return c.JSON(http.StatusOK, search)
 }
 
+// struct of what we expect
+type createSearchPayload struct {
+	IDInteractionType int64  `json:"IDInteractionType"`
+	IDSuggestionType  int64  `json:"IDSuggestionType"`
+	IDSearchType      int64  `json:"IDSearchType"`
+	IsPartial         int64  `json:"IsPartial"`
+	IsMulti           int64  `json:"IsMulti"`
+	IsFromURL         int64  `json:"IsFromURL"`
+	Value             string `json:"Value"`
+	MatchedValues     string `json:"MatchedValues"`
+}
+
 // CreateSearch handles POST /api/searches
 func (h *SearchHandler) CreateSearch(c echo.Context) error {
-	// bind request JSON to Search struct
-	var search model.Search
-	if err := c.Bind(&search); err != nil {
+	// read the cookie based session
+	sess, err := esession.Get("session", c)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to read cookie session",
+			"detail": err.Error(),
+		})
+	}
+
+	// extract session_id from cookie from whatever form it's in
+	var sessionID int64
+	if raw, ok := sess.Values["session_id"]; ok {
+		switch v := raw.(type) {
+		case int64:
+			sessionID = v
+		case int:
+			sessionID = int64(v)
+		case float64:
+			sessionID = int64(v)
+		}
+	}
+
+	// bind request JSON into payload
+	var payload createSearchPayload
+	if err := c.Bind(&payload); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
 			"detail": err.Error(),
 		})
 	}
 
-	// insert into DB
+	// create Interaction for this search
+	interaction := model.Interaction{
+		IDSession:         sessionID,
+		IDInteractionType: payload.IDInteractionType,
+		// Timestamp is defaulted in the db
+	}
+	if err := h.DB.Create(&interaction).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to create interaction",
+			"detail": err.Error(),
+		})
+	}
+
+	// create Search linked to this Interaction
+	val := payload.Value
+	search := model.Search{
+		IDInteraction:    interaction.IDInteraction,
+		IDSuggestionType: payload.IDSuggestionType,
+		IDSearchType:     payload.IDSearchType,
+		IsPartial:        payload.IsPartial,
+		IsMulti:          payload.IsMulti,
+		IsFromURL:        payload.IsFromURL,
+		Value:            &val,
+		MatchedValues:    []byte(payload.MatchedValues),
+	}
 	if err := h.DB.Create(&search).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error":  "failed to create search",
@@ -1263,7 +1364,24 @@ func (h *SearchHandler) CreateSearch(c echo.Context) error {
 		})
 	}
 
-	// return created row
+	// if IsMulti is true then create SearchMulti row
+	if payload.IsMulti != 0 {
+		smVal := payload.Value
+		searchMulti := model.SearchMulti{
+			IDInteraction:    interaction.IDInteraction,
+			IDSuggestionType: payload.IDSuggestionType,
+			IDSearchType:     payload.IDSearchType,
+			Value:            &smVal,
+		}
+		if err := h.DB.Create(&searchMulti).Error; err != nil {
+			return c.JSON(http.StatusInternalServerError, echo.Map{
+				"error":  "failed to create search multi",
+				"detail": err.Error(),
+			})
+		}
+	}
+
+	// return created Search row
 	return c.JSON(http.StatusCreated, search)
 }
 
@@ -1774,18 +1892,93 @@ func (h *EditDelRowHandler) GetEditDelRow(c echo.Context) error {
 	return c.JSON(http.StatusOK, edr)
 }
 
+// struct of what we expect from front end with info to make rows in Interaction and Edit and EditDelRow
+type createEditDelRowPayload struct {
+	IDInteractionType int64   `json:"IDInteractionType"`
+	IDEntryType       int64   `json:"IDEntryType"`
+	Mode              string  `json:"Mode"`
+	IsCorrect         int64   `json:"IsCorrect"`
+	Comment           string  `json:"Comment"`
+}
+
 // CreateEditDelRow handles POST /api/editdelrows
 func (h *EditDelRowHandler) CreateEditDelRow(c echo.Context) error {
-	// bind request JSON to EditDelRow struct
-	var edr model.EditDelRow
-	if err := c.Bind(&edr); err != nil {
+	// read the cookie based session
+	sess, err := esession.Get("session", c)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to read cookie session",
+			"detail": err.Error(),
+		})
+	}
+
+	// extract session_id from cookie from whatever form it's in
+	var sessionID int64
+	if raw, ok := sess.Values["session_id"]; ok {
+		switch v := raw.(type) {
+		case int64:
+			sessionID = v
+		case int:
+			sessionID = int64(v)
+		case float64:
+			sessionID = int64(v)
+		}
+	}
+
+	// bind request JSON filled with info for Interaction and Edit and EditDelRow
+	var payload createEditDelRowPayload
+	if err := c.Bind(&payload); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
 			"detail": err.Error(),
 		})
 	}
 
-	// insert into DB
+	// create Interaction using IDSession from cookie
+	interaction := model.Interaction{
+		IDSession:         sessionID,
+		IDInteractionType: payload.IDInteractionType,
+		// Timestamp is default
+	}
+	if err := h.DB.Create(&interaction).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to create interaction",
+			"detail": err.Error(),
+		})
+	}
+
+	// create Edit linked to this Interaction
+	edit := model.Edit{
+		IDInteraction: interaction.IDInteraction,
+		IDEntryType:   payload.IDEntryType,
+		Mode:          payload.Mode,
+		IsCorrect:     payload.IsCorrect,
+	}
+	if err := h.DB.Create(&edit).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to create edit",
+			"detail": err.Error(),
+		})
+	}
+
+	// create a UniqueId row
+    newUnique := model.UniqueId{
+        Active: 1, 
+        Notes:  nil,
+    }
+    if err := h.DB.Create(&newUnique).Error; err != nil {
+        return c.JSON(http.StatusInternalServerError, echo.Map{
+            "error":  "failed to create unique id",
+            "detail": err.Error(),
+        })
+    }
+
+    // create EditDelRow linked to Edit and UniqueId
+    edr := model.EditDelRow{
+        IDEdit:     edit.IDEdit,
+        IDUniqueID: newUnique.IDUniqueID,
+        Comment:    payload.Comment,
+    }
 	if err := h.DB.Create(&edr).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error":  "failed to create edit del row",
@@ -1793,7 +1986,7 @@ func (h *EditDelRowHandler) CreateEditDelRow(c echo.Context) error {
 		})
 	}
 
-	// return created row
+	// return new row in edit del row
 	return c.JSON(http.StatusCreated, edr)
 }
 
@@ -1933,18 +2126,81 @@ func (h *EditNewRowHandler) GetEditNewRow(c echo.Context) error {
 	return c.JSON(http.StatusOK, enr)
 }
 
+// struct of what we expect from front end with info to make rows in Interaction and Edit and EditNewRow
+type createEditNewRowPayload struct {
+	IDInteractionType int64   `json:"IDInteractionType"`
+	IDEntryType       int64   `json:"IDEntryType"`   
+	IDSuggestion      int64   `json:"IDSuggestion"`     
+	Mode              string  `json:"Mode"`       
+	IsCorrect         int64   `json:"IsCorrect"`         
+}
+
 // CreateEditNewRow handles POST /api/editnewrows
 func (h *EditNewRowHandler) CreateEditNewRow(c echo.Context) error {
-	// bind request JSON to EditNewRow struct
-	var enr model.EditNewRow
-	if err := c.Bind(&enr); err != nil {
+	// read the cookie based session
+	sess, err := esession.Get("session", c)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to read cookie session",
+			"detail": err.Error(),
+		})
+	}
+
+	// extract session_id from cookie from whatever form it's in
+	var sessionID int64
+	if raw, ok := sess.Values["session_id"]; ok {
+		switch v := raw.(type) {
+		case int64:
+			sessionID = v
+		case int:
+			sessionID = int64(v)
+		case float64:
+			sessionID = int64(v)
+		}
+	}
+
+	// bind request JSON filled with info for Interaction and Edit and EditNewRow
+	var payload createEditNewRowPayload
+	if err := c.Bind(&payload); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
 			"detail": err.Error(),
 		})
 	}
 
-	// insert into DB
+	// create Interaction using IDSession from cookie
+	interaction := model.Interaction{
+		IDSession:         sessionID,
+		IDInteractionType: payload.IDInteractionType,
+		// Timestamp is default
+	}
+	if err := h.DB.Create(&interaction).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to create interaction",
+			"detail": err.Error(),
+		})
+	}
+
+	// create Edit linked to this Interaction
+	edit := model.Edit{
+		IDInteraction: interaction.IDInteraction,
+		IDEntryType:   payload.IDEntryType,
+		Mode:          payload.Mode,
+		IsCorrect:     payload.IsCorrect,
+	}
+	if err := h.DB.Create(&edit).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to create edit",
+			"detail": err.Error(),
+		})
+	}
+
+	// create EditNewRow linked to this Edit
+	enr := model.EditNewRow{
+		IDEdit:       edit.IDEdit,
+		IDSuggestion: payload.IDSuggestion,
+		IsCorrect:    payload.IsCorrect,
+	}
 	if err := h.DB.Create(&enr).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error":  "failed to create edit new row",
@@ -1952,7 +2208,7 @@ func (h *EditNewRowHandler) CreateEditNewRow(c echo.Context) error {
 		})
 	}
 
-	// return created row
+	// return new row in edit new row
 	return c.JSON(http.StatusCreated, enr)
 }
 

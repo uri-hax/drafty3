@@ -32,7 +32,7 @@ import DataGridWrapper from './DataGridWrapper';
 import MultiSelectModal from './MultiSelectModal';
 import AddRowFooter from './AddRowFooter';
 import { ensureSession, type BackendSession } from "../lib/sessions";
-import { recordCellClick, /*recordCellEdit, recordColumnSearch, recordRowAdd, recordRowDelete*/ } from "../lib/interactions"
+import { recordCellClick, recordCellEdit, recordColumnSearch, recordRowAdd, recordRowDelete } from "../lib/interactions"
 
 const customWidths: Record<string, string> = {
   FullName: "15%",
@@ -118,7 +118,35 @@ export default function App() {
         });
   
         setColumnFilters(initialFilters);
-  
+
+        const urlFilterCount = Object.values(initialFilters).filter(
+          (v) => v && v.trim() !== ""
+        ).length;
+
+        for (const [colKey, value] of Object.entries(initialFilters)) {
+          const trimmed = value.trim();
+          if (!trimmed) {
+            continue;
+          }
+
+          const matchedValues = getColumnMatches(colKey, value, parsedData);
+          const lowerSearch = trimmed.toLowerCase();
+          const hasExactMatch = matchedValues.some(
+            (m) => m.toLowerCase() === lowerSearch
+          );
+          const isPartial = !hasExactMatch;
+          const isMulti = urlFilterCount > 1;
+          const isFromURL = true;
+
+          recordColumnSearch(
+            value,
+            matchedValues,
+            isPartial,
+            isMulti,
+            isFromURL
+          );
+        }
+
         const initialNewRowData: ColumnData = {};
         for (const key of columnKeys) {
           initialNewRowData[key] =
@@ -160,7 +188,9 @@ export default function App() {
   }, [columnFilters, data, columns]);
 
   useEffect(() => {
-    if (columns.length === 0) return;
+    if (columns.length === 0) {
+      return;
+    }
 
     const params = new URLSearchParams();
 
@@ -173,11 +203,71 @@ export default function App() {
     window.history.replaceState(null, '', '?' + params.toString());
   }, [columnFilters, columns]);
 
+  const getColumnMatches = (colKey: string, value: string, rows: ColumnData[]): string[] => {
+    const search = value.trim().toLowerCase();
+    if (!search) {
+      return [];
+    }
+
+    const matches: string[] = [];
+
+    for (const row of rows) {
+      const cellValue = row[colKey];
+
+      if (Array.isArray(cellValue)) {
+        for (const v of cellValue) {
+          const str = v?.toString() ?? "";
+          if (str.toLowerCase().includes(search)) {
+            matches.push(str);
+          }
+        }
+      } 
+      else if (cellValue != null) {
+        const str = cellValue.toString();
+        if (str.toLowerCase().includes(search)) {
+          matches.push(str);
+        }
+      }
+    }
+
+    return Array.from(new Set(matches));
+  };
+
   const handleColumnFilterChange = (colKey: string, value: string) => {
-    setColumnFilters((prevFilters) => ({
-      ...prevFilters,
+    const nextFilters: Record<string, string> = {
+      ...columnFilters,
       [colKey]: value,
-    }));
+    };
+
+    setColumnFilters(nextFilters);
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const nonEmptyFilterCount = Object.values(nextFilters).filter(
+      (v) => v && v.trim() !== ""
+    ).length;
+    const isMulti = nonEmptyFilterCount > 1;
+
+    const matchedValues = getColumnMatches(colKey, value, data);
+
+    const lowerSearch = trimmed.toLowerCase();
+    const hasExactMatch = matchedValues.some(
+      (m) => m.toLowerCase() === lowerSearch
+    );
+    const isPartial = !hasExactMatch;
+
+    const isFromURL = false; 
+
+    recordColumnSearch(
+      value,
+      matchedValues,
+      isPartial,
+      isMulti,
+      isFromURL
+    );
   };
 
   const allFieldsFilled = React.useMemo(() => {
@@ -207,7 +297,7 @@ export default function App() {
     const actualRowIndex = data.indexOf(filteredData[row]);
     const rowData = data[actualRowIndex];
     const idSuggestion = actualRowIndex;
-    recordCellClick(session.SessionID, idSuggestion, rowData);
+    recordCellClick(idSuggestion, rowData);
 
     const colKey = columns[col].id as string;
     const colType = columnSchema[colKey] || "string";
@@ -257,6 +347,8 @@ export default function App() {
 
     setData(updatedData);
     setFilteredData(updatedData);
+
+    recordCellEdit();
   };
 
   const onGridSelectionChange = (newSelection: GridSelection) => {
@@ -275,6 +367,8 @@ export default function App() {
         rows: CompactSelection.empty(),
         columns: CompactSelection.empty(),
       });
+
+      recordRowDelete();
     } 
     else if (gridSelection.current && gridSelection.current.cell) {
       const [, row] = gridSelection.current.cell;
@@ -287,6 +381,8 @@ export default function App() {
         rows: CompactSelection.empty(),
         columns: CompactSelection.empty(),
       });
+
+      recordRowDelete();
     } 
     else {
       setSnackbarOpen(true);
@@ -301,6 +397,10 @@ export default function App() {
     if (!allFieldsFilled) return;
 
     const updatedData = [...data, newRowData];
+
+    const idSuggestion = updatedData.length - 1;
+    recordRowAdd(idSuggestion);
+
     setData(updatedData);
     setFilteredData(updatedData);
     const resetObj: ColumnData = {};

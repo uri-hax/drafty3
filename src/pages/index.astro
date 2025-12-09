@@ -65,6 +65,13 @@ import Card from '../components/Card.astro';
 	</main>
 </Layout>
 
+<script type="module">
+	fetch("/api/sessions", {
+		method: "POST",
+		credentials: "include"
+	}).catch(err => console.error("Session init failed", err));
+</script>
+
 <style>
 	main {
 		margin: auto;

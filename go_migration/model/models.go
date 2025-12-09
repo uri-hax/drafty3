@@ -119,7 +119,7 @@ type Edit struct {
 	IDEdit        int64  `gorm:"column:idEdit;primaryKey;autoIncrement"`
 	IDEntryType   int64  `gorm:"column:idEntryType;not null"`
 	Mode          string `gorm:"column:mode;not null;default:normal"`
-	IsCorrect     *int64 `gorm:"column:isCorrect;default:2"`
+	IsCorrect     int64 `gorm:"column:isCorrect;default:2"`
 }
 func (Edit) TableName() string { return "Edit" }
 

@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	dsn := "db/drafty_gorm.db?_pragma=foreign_keys(1)"
+	dsn := "../db/drafty_new.db?_pragma=foreign_keys(1)"
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("open sqlite: %v", err)

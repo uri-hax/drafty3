@@ -18,7 +18,7 @@ func main() {
 	// read DB path from env or fall back to default
 	dbPath := os.Getenv("DB_PATH")
 	if dbPath == "" {
-		dbPath = "../db/drafty_gorm.db"
+		dbPath = "../db/drafty_new_gorm.db"
 	}
 
 	// open DB connection with gorm
@@ -53,7 +53,6 @@ func main() {
 	roleHandler := handler.NewRoleHandler(db)
 	searchTypeHandler := handler.NewSearchTypeHandler(db)
 	selectRangeHandler := handler.NewSelectRangeHandler(db)
-	sessionHandler := handler.NewSessionHandler(db)
 	suggestionTypeHandler := handler.NewSuggestionTypeHandler(db)
 	copyColumnHandler := handler.NewCopyColumnHandler(db)
 	searchHandler := handler.NewSearchHandler(db)
@@ -156,10 +155,6 @@ func main() {
 	api.GET("/selectranges/:id", selectRangeHandler.GetSelectRange)
 	api.POST("/selectranges", selectRangeHandler.CreateSelectRange)
 
-	// Session
-	api.GET("/sessions/:id", sessionHandler.GetSession)
-	api.POST("/sessions", sessionHandler.CreateSession)
-
 	// SuggestionType
 	api.GET("/suggestiontypes/:id", suggestionTypeHandler.GetSuggestionType)
 	api.POST("/suggestiontypes", suggestionTypeHandler.CreateSuggestionType)
@@ -240,7 +235,7 @@ func main() {
 	api.GET("/visits/:id", visitHandler.GetVisit)
 	api.POST("/visits", visitHandler.CreateVisit)
 
-	// Sessions store (sessions table)
+	// Sessions
 	api.GET("/sessions/:id", sessionsHandler.GetSessions)
 	api.POST("/sessions", sessionsHandler.CreateSessions)
 
