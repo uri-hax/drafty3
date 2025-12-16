@@ -1,7 +1,20 @@
 ---
 import CsProfsTemplate from '../templates/csprofsTemp.astro';
-import App from '../components/App';
+import App from '../components/App.tsx';
+import appCssUrl from '../components/App.css?url';
+
+export const prerender = true;
 ---
 
-<CsProfsTemplate />
-<App client:only="react" />
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Drafty Prototype</title>
+  </head>
+  <body>
+    <CsProfsTemplate />
+    <link rel="stylesheet" href={appCssUrl} />
+    <App client:only="react" />
+  </body>
+</html>

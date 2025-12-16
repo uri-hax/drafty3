@@ -43,7 +43,7 @@ export default function App() {
         const { gridColumns, parsedData, columnSchema } = await fetchCsvData(
           gridWidth, 
           customWidths,
-          '/edit-history.csv',
+          '/drafty3/edit-history.csv',
         ); 
 
         setColumns(gridColumns);
@@ -112,11 +112,11 @@ export default function App() {
   }, [columnFilters, columns]);
 
   const handleData = () => {
-    window.location.href = "/csprofs";
+    window.location.href = "/drafty3/csprofs";
   }
 
   const handleEditHistory = () => {
-    window.location.href = "/edit-history";
+    window.location.href = "/drafty3/edit-history";
   };
 
   return (
