@@ -10,8 +10,8 @@ import (
 
 	"drafty3/endpoints/handler"
 
-	esession "github.com/labstack/echo-contrib/session" 
-	"github.com/gorilla/sessions"                       
+	"github.com/gorilla/sessions"
+	esession "github.com/labstack/echo-contrib/session"
 )
 
 func main() {
@@ -240,6 +240,6 @@ func main() {
 	api.POST("/sessions", sessionsHandler.CreateSessions)
 
 	// start server
-	log.Println("Server running on http://localhost:8080")
-	e.Logger.Fatal(e.Start(":8080"))
+	log.Println("Server running on http://localhost:8081")
+	e.Logger.Fatal(e.Start(":8081"))
 }
