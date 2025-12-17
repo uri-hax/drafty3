@@ -45,6 +45,7 @@ const draftyOld = {
   scrollbarTrack: "#020617",
 
   textBubble: "#ffffff",
+  textBubbleSelected: "#ffffff",
   bgBubble: "#2a9cff", // will render ~#0b89ff glide darkens it
   bgBubbleSelected: "#2a9cff",
 
