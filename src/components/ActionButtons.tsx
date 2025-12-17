@@ -1,23 +1,47 @@
-// src/components/ActionButtons.tsx
-
-/*
-  Provides action buttons for adding and deleting rows.
-  - Delete Row: Triggers a callback to remove the currently selected row(s).
-  - Add Row: Opens the interface for adding a new row to the dataset.
-
-  This component is data-agnostic and simply provides UI actions that the parent component can handle.
-*/
-
 import React from 'react';
-import { Button, type SxProps, type Theme } from '@mui/material';
+import {
+  Button,
+  Tooltip,
+  type SxProps,
+  type Theme,
+} from '@mui/material';
+
+import HistoryIcon from '@mui/icons-material/History';
+import TableViewIcon from '@mui/icons-material/TableView';
+import AddBoxRoundedIcon from '@mui/icons-material/AddBoxRounded';
+import IndeterminateCheckBoxRoundedIcon from
+  '@mui/icons-material/IndeterminateCheckBoxRounded';
 
 const primaryGridButtonSx: SxProps<Theme> = {
-  borderColor: '#13599f',
-  borderWidth: 1,
-  borderStyle: 'solid',
-  fontSize: '0.75em',
+  backgroundColor: '#0b89ff',
+  border: '1px solid #0b89ff',
   boxShadow: 'none',
   textTransform: 'none',
+  fontFamily: 'monospace',
+  color: '#fff',
+
+  '&:hover': {
+    backgroundColor: '#0a7be6',
+    boxShadow: 'none',
+  },
+};
+
+const primaryGridButtonLargeSx: SxProps<Theme> = {
+  ...primaryGridButtonSx,
+  fontSize: '1.2em',
+  fontWeight: 600,
+  padding: '6px 14px',
+};
+
+const gridActionButtonSx: SxProps<Theme> = {
+  ...primaryGridButtonSx,
+  fontSize: '0.9em',
+  padding: '4px 10px',
+  minHeight: 32,
+
+  '& .MuiButton-startIcon': {
+    marginRight: '6px',
+  },
 };
 
 interface ActionButtonsProps {
@@ -35,56 +59,66 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   handleData,
   handleHomePage,
 }) => (
-  <div style={{ padding: "0.5em", backgroundColor: "#1976D2" }}>
-    <div style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
+  <div style={{ padding: '0.5em', backgroundColor: '#0b89ff' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em' }}>
 
+      {/* Primary brand button */}
       <Button
         variant="contained"
-        color="primary"
         onClick={handleHomePage}
-        sx={primaryGridButtonSx}
+        sx={primaryGridButtonLargeSx}
       >
         Drafty
       </Button>
 
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={handleData}
-        sx={primaryGridButtonSx}
-      >
-        CS Professors
-      </Button>
-
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={handleEditHistory}
-        sx={primaryGridButtonSx}
-      >
-        Edit History
-      </Button>
-
-      {setIsAddingRow && (
+      {/* Data view */}
+      <Tooltip title="CS Professors" arrow>
         <Button
-          variant="contained"
-          color="primary"
-          onClick={() => setIsAddingRow(true)}
-          sx={primaryGridButtonSx}
+          onClick={handleData}
+          sx={gridActionButtonSx}
+          startIcon={<TableViewIcon fontSize="small" />}
         >
-          Add Row
+          CS Professors
         </Button>
+      </Tooltip>
+
+      {/* Edit history */}
+      <Tooltip title="Edit History" arrow>
+        <Button
+          onClick={handleEditHistory}
+          sx={gridActionButtonSx}
+          startIcon={<HistoryIcon fontSize="small" />}
+        >
+          Edit History
+        </Button>
+      </Tooltip>
+
+      {/* Add row */}
+      {setIsAddingRow && (
+        <Tooltip title="Add Row" arrow>
+          <Button
+            onClick={() => setIsAddingRow(true)}
+            sx={gridActionButtonSx}
+            startIcon={<AddBoxRoundedIcon fontSize="small" />}
+          >
+            Add Row
+          </Button>
+        </Tooltip>
       )}
 
+      {/* Delete row */}
       {handleDeleteRow && (
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleDeleteRow}
-          sx={primaryGridButtonSx}
-        >
-          Delete Row
-        </Button>
+        <Tooltip title="Delete Row" arrow>
+          <Button
+            onClick={handleDeleteRow}
+            sx={gridActionButtonSx}
+            startIcon={
+              <IndeterminateCheckBoxRoundedIcon fontSize="small" />
+            }
+          >
+            Delete Row
+          </Button>
+        </Tooltip>
       )}
     </div>
   </div>

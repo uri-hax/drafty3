@@ -27,6 +27,31 @@ import {
 } from "@glideapps/glide-data-grid";
 import type { ColumnData } from '../interfaces/ColumnData';
 
+const draftyOld = {
+  //bgCell: "#0f172a",
+  //bgCellHeader: "#020617",
+  //bgCellHovered: "#1e293b",
+  //bgCellSelected: "#334155",
+
+  textDark: "#47494d",
+  //textMedium: "#cbd5f5",
+  //textLight: "#94a3b8",
+
+  //borderColor: "#f0f0f0",
+  accentColor: "#2a9cff",
+  accentFg: "#18609eff",
+
+  scrollbarThumb: "#475569",
+  scrollbarTrack: "#020617",
+
+  textBubble: "#ffffff",
+  bgBubble: "#2a9cff", // will render ~#0b89ff glide darkens it
+  bgBubbleSelected: "#2a9cff",
+
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+};
+
+
 interface DataGridWrapperProps {
   columns: GridColumn[];
   filteredData: ColumnData[];
@@ -81,15 +106,21 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
       rows={filteredData.length}
       onCellEdited={onCellEdited}
       rowMarkers="none"
+      rowSelect="none"
+      columnSelect="none"
+      rangeSelect="cell"
       onCellActivated={onCellActivated}
       onGridSelectionChange={onGridSelectionChange}
       gridSelection={gridSelection}
       showSearch={false}
       width={gridWidth}
       height="100%"
+
+      theme={draftyOld}
+
+      // glide table hack for zebra striping
       getRowThemeOverride={(rowIndex: number) => ({
-        bgCell: rowIndex % 2 === 0 ? "#ffffff" : "#f0f0f0", 
-        bgBubble: "#6bb6ff",
+        bgCell: rowIndex % 2 === 0 ? "#ffffff" : "#f7f7f7", 
       })}
     />
   );

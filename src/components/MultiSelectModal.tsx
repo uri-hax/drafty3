@@ -42,7 +42,7 @@ const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
       style={{
         background: "white",
         padding: "20px",
-        borderRadius: "10px",
+        borderRadius: "8px",
         margin: "50px auto",
         width: "400px",
       }}
