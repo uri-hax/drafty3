@@ -24,11 +24,8 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   handleEditHistory,
   handleData,
 }) => (
-  <div style={{ padding: "10px", backgroundColor: "dodgerblue" }}>
-    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-      <div style={{ padding: "10px", color: "white", fontSize: 20, fontWeight: "bold" }}>
-        Drafty
-      </div>
+  <div style={{ padding: "0.5em", backgroundColor: "#1976D2" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
 
       <Button
         variant="contained"
@@ -36,8 +33,23 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         onClick={handleData}
         style={{
           borderColor: "white",
-          borderWidth: "2px",
+          borderWidth: "1px",
           borderStyle: "solid",
+          fontSize: "0.75em"
+        }}
+      >
+        Drafty
+      </Button>
+
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={handleData}
+        style={{
+          borderColor: "white",
+          borderWidth: "1px",
+          borderStyle: "solid",
+          fontSize: "0.75em"
         }}
       >
         CS Professors
@@ -49,8 +61,9 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         onClick={handleEditHistory}
         style={{
           borderColor: "white",
-          borderWidth: "2px",
+          borderWidth: "1px",
           borderStyle: "solid",
+          fontSize: "0.75em"
         }}
       >
         Edit History
@@ -63,8 +76,9 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           onClick={() => setIsAddingRow(true)}
           style={{
             borderColor: "white",
-            borderWidth: "2px",
+            borderWidth: "1px",
             borderStyle: "solid",
+            fontSize: "0.75em"
           }}
         >
           Add Row
@@ -78,8 +92,9 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           onClick={handleDeleteRow}
           style={{
             borderColor: "white",
-            borderWidth: "2px",
+            borderWidth: "1px",
             borderStyle: "solid",
+            fontSize: "0.75em"
           }}
         >
           Delete Row

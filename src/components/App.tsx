@@ -20,7 +20,7 @@
 import './App.css';
 import "@glideapps/glide-data-grid/dist/index.css";
 import React, { useState, useEffect } from 'react';
-import { Snackbar, Button } from '@mui/material';
+import { Snackbar } from '@mui/material';
 import { CompactSelection, type BubbleCell, type EditableGridCell, type GridSelection, type Item, type GridColumn } from "@glideapps/glide-data-grid";
 import { fetchCsvData } from '../utils/csvParser';
 import type { ColumnData } from '../interfaces/ColumnData';
@@ -37,7 +37,7 @@ import { recordCellClick, recordCellEdit, recordColumnSearch, recordRowAdd, reco
 const customWidths: Record<string, string> = {
   FullName: "15%",
   University: "20%",
-  JoinYear: "5%",
+  JoinYear: "6%",
   SubField: "18%",
   Bachelors: "20%",
   Doctorate: "20%"
