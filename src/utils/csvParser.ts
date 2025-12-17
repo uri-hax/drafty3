@@ -3,7 +3,6 @@ import type { GridColumn } from "@glideapps/glide-data-grid";
 import type { ColumnData } from '../interfaces/ColumnData';
 import { generateOptionsLists, generateColumnWidths } from './constants';
 import yaml from 'js-yaml'; 
-import PocketBase from 'pocketbase'
 
 /*
   Attempt to fetch and parse a YAML schema file that defines the column types.
