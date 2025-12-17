@@ -1,5 +1,3 @@
-// src/components/App.tsx
-
 /*
   This component orchestrates the entire application:
   - Fetches CSV data and optional YAML schema using fetchCsvData, producing:
@@ -286,14 +284,13 @@ export default function App() {
     });
   }, [columnSchema, newRowData]);
 
-  const onCellActivated = (cell: Item) => {
+  const onCellEditorActivated = (cell: Item) => {
     if (!session) {
       return;
     }
 
     const [col, row] = cell;
     console.log("Column: ", col, " Row: ", row);
-
     const actualRowIndex = data.indexOf(filteredData[row]);
     const rowData = data[actualRowIndex];
     const idSuggestion = actualRowIndex;
@@ -301,7 +298,7 @@ export default function App() {
 
     const colKey = columns[col].id as string;
     const colType = columnSchema[colKey] || "string";
-    console.log(cell)
+    //console.log(cell)
 
     if (colType === 'string[]') {
       setEditingCell({ row, colKey });
@@ -352,6 +349,19 @@ export default function App() {
   };
 
   const onGridSelectionChange = (newSelection: GridSelection) => {
+    console.log('onGridSelectionChange');
+    console.log(newSelection.current?.cell)
+    
+    const cell = newSelection.current?.cell;
+    if (cell) {
+      const [col, row] = cell;
+      console.log("Column: ", col, " Row: ", row);
+      const actualRowIndex = data.indexOf(filteredData[row]);
+      const rowData = data[actualRowIndex];
+      const idSuggestion = actualRowIndex;
+      recordCellClick(idSuggestion, rowData);
+    }
+
     setGridSelection(newSelection);
   };
 
@@ -369,8 +379,7 @@ export default function App() {
       });
 
       recordRowDelete();
-    } 
-    else if (gridSelection.current && gridSelection.current.cell) {
+    } else if (gridSelection.current && gridSelection.current.cell) {
       const [, row] = gridSelection.current.cell;
       const rowData = filteredData[row];
 
@@ -383,8 +392,7 @@ export default function App() {
       });
 
       recordRowDelete();
-    } 
-    else {
+    } else {
       setSnackbarOpen(true);
     }
   };
@@ -451,7 +459,7 @@ export default function App() {
           columns={columns}
           filteredData={filteredData}
           onCellEdited={onCellEdited}
-          onCellActivated={onCellActivated}
+          onCellEditorActivated={onCellEditorActivated}
           gridSelection={gridSelection}
           onGridSelectionChange={onGridSelectionChange}
           gridWidth={gridWidth}
