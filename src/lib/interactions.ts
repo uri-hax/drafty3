@@ -1,4 +1,5 @@
 import type { ColumnData } from "../interfaces/ColumnData";
+import { getAPI } from "./api";
 
 // base API call for interactions
 export function recordInteraction(
@@ -37,7 +38,7 @@ export function recordCellClick(
   const rowValuesString = JSON.stringify(rowValues);
 
   recordInteraction(
-    "/api/clicks",
+    `${getAPI()}/clicks`,
     {
       IDInteractionType: 1, // placeholder
       IDSuggestion:      idSuggestion,
@@ -50,7 +51,7 @@ export function recordCellClick(
 export function recordCellEdit(
 ) {
   recordInteraction(
-    "/api/edits",
+    `${getAPI()}/edits`,
     {
       IDInteractionType: 2, // placeholder
       IDEntryType:       1, // placeholder
@@ -70,7 +71,7 @@ export function recordColumnSearch(
   isFromURL: boolean
 ) {
   recordInteraction(
-    "/api/searches",
+    `${getAPI()}/searches`,
     {
       IDInteractionType: 2, // placeholder
       IDSuggestionType: 1, // placeholder
@@ -91,7 +92,7 @@ export function recordRowAdd(
   idSuggestion: number
 ) {
   recordInteraction(
-    "/api/editnewrows",
+    `${getAPI()}/editnewrows`,
     {
       IDInteractionType: 3, // placeholder
       IDEntryType: 2,       // placeholder
@@ -106,7 +107,7 @@ export function recordRowAdd(
 // row delete
 export function recordRowDelete() {
   recordInteraction(
-    "/api/editdelrows",
+    `${getAPI()}/editdelrows`,
     {
       IDInteractionType: 4, // placeholder
       IDEntryType: 3,       // placeholder

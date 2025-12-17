@@ -1,3 +1,4 @@
+import { getAPI } from "./api";
 export interface BackendSession {
   SessionID: number;
   Expires: number;
@@ -5,7 +6,7 @@ export interface BackendSession {
 }
 
 export async function ensureSession(): Promise<BackendSession> {
-  const res = await fetch("/api/sessions", {
+  const res = await fetch(`${getAPI()}/sessions`, {
     method: "POST",
     credentials: "include",
   });
