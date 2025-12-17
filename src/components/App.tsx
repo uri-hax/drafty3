@@ -293,7 +293,7 @@ export default function App() {
     console.log("Column: ", col, " Row: ", row);
     const actualRowIndex = data.indexOf(filteredData[row]);
     const rowData = data[actualRowIndex];
-    const idSuggestion = actualRowIndex;
+    const idSuggestion = actualRowIndex; // TODO this is incorrect - every cell has its own idSuggestion, each row has a idUniqueId
     recordCellClick(idSuggestion, rowData);
 
     const colKey = columns[col].id as string;
@@ -358,7 +358,7 @@ export default function App() {
       console.log("Column: ", col, " Row: ", row);
       const actualRowIndex = data.indexOf(filteredData[row]);
       const rowData = data[actualRowIndex];
-      const idSuggestion = actualRowIndex;
+      const idSuggestion = actualRowIndex; // TODO wrong (see other TODOs for idSuggestion)
       recordCellClick(idSuggestion, rowData);
     }
 
@@ -406,7 +406,7 @@ export default function App() {
 
     const updatedData = [...data, newRowData];
 
-    const idSuggestion = updatedData.length - 1;
+    const idSuggestion = updatedData.length - 1; // TODO - incorrect, this is not by position
     recordRowAdd(idSuggestion);
 
     setData(updatedData);
