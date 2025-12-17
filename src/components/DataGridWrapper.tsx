@@ -122,6 +122,11 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
       getRowThemeOverride={(rowIndex: number) => ({
         bgCell: rowIndex % 2 === 0 ? "#ffffff" : "#f7f7f7", 
       })}
+
+      // disable select all - not entirely working yet
+      keybindings={{
+        selectAll: false,
+      }}
     />
   );
 };
