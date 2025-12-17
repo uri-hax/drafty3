@@ -13,63 +13,123 @@
   - optionsList: array of possible string values
   - title: optional modal title for clarity
 */
+import React from "react";
+import {
+  Modal,
+  Button,
+  TextField,
+  Autocomplete,
+  Box,
+  Typography,
+} from "@mui/material";
 
-import React from 'react';
-import { Modal, Button, TextField, Autocomplete } from '@mui/material';
+const monoFont =
+  "ui-monospace, SFMono-Regular, Menlo, monospace";
 
 interface MultiSelectModalProps {
   isOverlayVisible: boolean;
   setIsOverlayVisible: React.Dispatch<React.SetStateAction<boolean>>;
+
+  optionsList: string[];
+
   selectedOptions: string[];
   setSelectedOptions: React.Dispatch<React.SetStateAction<string[]>>;
-  handleSaveOptions: () => void;
-  optionsList: string[];
+
+  multiple?: boolean;
   title?: string;
+
+  handleSaveOptions: () => void;
 }
 
 const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
   isOverlayVisible,
   setIsOverlayVisible,
+  optionsList,
   selectedOptions,
   setSelectedOptions,
   handleSaveOptions,
-  optionsList,
-  title = "Select Values",
+  multiple = true,
+  title = "Select Value(s)",
 }) => (
   <Modal open={isOverlayVisible} onClose={() => setIsOverlayVisible(false)}>
-    <div
-      className="overlay-content"
-      style={{
-        background: "white",
-        padding: "20px",
-        borderRadius: "10px",
-        margin: "50px auto",
-        width: "400px",
+    <Box
+      sx={{
+        backgroundColor: "#ffffff",
+        color: "#47494d",
+        fontFamily: monoFont,
+        "& *": {
+          fontFamily: monoFont,
+        },
+        width: 420,
+        margin: "64px auto",
+        padding: 2,
+        borderRadius: "6px",
+        border: "1px solid #e5e7eb",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
       }}
     >
-      <h3>{title}</h3>
+      <Typography
+        sx={{
+          fontSize: 14,
+          fontWeight: 600,
+          marginBottom: 1.5,
+          fontFamily: monoFont,
+        }}
+      >
+        {title}
+      </Typography>
+
       <Autocomplete
         multiple
         options={optionsList}
-        getOptionLabel={(option) => option}
         value={selectedOptions}
-        onChange={(event, newValue) => {
-          setSelectedOptions(newValue);
+        onChange={(_, newValue) => {
+          if (multiple) {
+            setSelectedOptions(newValue);
+          } else {
+            // single-select: clamp to one value
+            setSelectedOptions(newValue.slice(0, 1));
+          }
         }}
-        renderInput={(params) => (
+        sx={{
+          "& .MuiInputBase-input": {
+            fontFamily: monoFont,
+          },
+          "& .MuiAutocomplete-tag": {
+            fontFamily: monoFont,
+          },
+          "& .MuiAutocomplete-listbox": {
+            fontFamily: monoFont,
+          },
+        }}
+        getOptionLabel={option => option}
+        renderInput={params => (
           <TextField
             {...params}
-            variant="outlined"
-            placeholder="Select Values"
+            placeholder={multiple ? "Select values…" : "Select value…"}
           />
         )}
-        style={{ marginBottom: "20px" }}
       />
-      <Button variant="contained" color="primary" onClick={handleSaveOptions}>
-        Save
-      </Button>
-    </div>
+
+      <Box sx={{ display: "flex", justifyContent: "flex-end", marginTop: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleSaveOptions}
+          sx={{
+            fontFamily: monoFont,
+            textTransform: "none",
+            fontSize: 13,
+            backgroundColor: "#2a9cff",
+            boxShadow: "none",
+            "&:hover": { backgroundColor: "#1f86e6" },
+          }}
+        >
+          Save
+        </Button>
+      </Box>
+    </Box>
   </Modal>
 );
+
 
 export default MultiSelectModal;
