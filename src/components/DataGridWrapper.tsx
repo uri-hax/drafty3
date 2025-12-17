@@ -9,7 +9,7 @@
 
   Requires:
   - columns, filteredData, columnSchema: to know how to render each cell
-  - onCellEdited, onCellActivated, onGridSelectionChange: parent event handlers
+  - onCellEdited, onCellEditorActivated, onGridSelectionChange: parent event handlers
   - gridSelection: current selection state
   - gridWidth: width of the grid in pixels
 */
@@ -57,7 +57,7 @@ interface DataGridWrapperProps {
   columns: GridColumn[];
   filteredData: ColumnData[];
   onCellEdited?: ([col, row]: Item, newValue: EditableGridCell | BubbleCell) => void;
-  onCellActivated?: (cell: Item) => void;
+  onCellEditorActivated?: (cell: Item) => void;
   gridSelection?: GridSelection;
   onGridSelectionChange?: (newSelection: GridSelection) => void;
   gridWidth: number;
@@ -68,7 +68,7 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
   columns,
   filteredData,
   onCellEdited,
-  onCellActivated,
+  onCellEditorActivated,
   gridSelection,
   onGridSelectionChange,
   gridWidth,
@@ -110,7 +110,7 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
       rowSelect="none"
       columnSelect="none"
       rangeSelect="cell"
-      onCellActivated={onCellActivated}
+      onCellActivated={onCellEditorActivated}
       onGridSelectionChange={onGridSelectionChange}
       gridSelection={gridSelection}
       showSearch={false}
