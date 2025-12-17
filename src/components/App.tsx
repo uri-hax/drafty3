@@ -428,6 +428,7 @@ export default function App() {
   return (
     <div className="App" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <ActionButtons
+        handleHomePage={handleHomePage}
         handleData={handleData}
         handleEditHistory={handleEditHistory}
         setIsAddingRow={setIsAddingRow}
@@ -461,11 +462,12 @@ export default function App() {
       <MultiSelectModal
         isOverlayVisible={isOverlayVisible}
         setIsOverlayVisible={setIsOverlayVisible}
-        selectedOptions={selectedOptions}
-        setSelectedOptions={setSelectedOptions}
         handleSaveOptions={handleSaveOptions}
         optionsList={editingCell ? (optionsLists[editingCell.colKey] || []) : []}
-        title="Edit Column Values"
+        multiple={true}
+        selectedOptions={selectedOptions}
+        setSelectedOptions={setSelectedOptions}
+        title = "Select Value(s)"
       />
 
       <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={handleSnackbarClose}>
