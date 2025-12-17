@@ -56,7 +56,10 @@ const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
       sx={{
         backgroundColor: "#ffffff",
         color: "#47494d",
-        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+        fontFamily: monoFont,
+        "& *": {
+          fontFamily: monoFont,
+        },
         width: 420,
         margin: "64px auto",
         padding: 2,
@@ -70,6 +73,7 @@ const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
           fontSize: 14,
           fontWeight: 600,
           marginBottom: 1.5,
+          fontFamily: monoFont,
         }}
       >
         {title}
@@ -87,6 +91,17 @@ const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
             setSelectedOptions(newValue.slice(0, 1));
           }
         }}
+        sx={{
+          "& .MuiInputBase-input": {
+            fontFamily: monoFont,
+          },
+          "& .MuiAutocomplete-tag": {
+            fontFamily: monoFont,
+          },
+          "& .MuiAutocomplete-listbox": {
+            fontFamily: monoFont,
+          },
+        }}
         getOptionLabel={option => option}
         renderInput={params => (
           <TextField
@@ -101,7 +116,7 @@ const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
           variant="contained"
           onClick={handleSaveOptions}
           sx={{
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontFamily: monoFont,
             textTransform: "none",
             fontSize: 13,
             backgroundColor: "#2a9cff",
