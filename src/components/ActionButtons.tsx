@@ -9,13 +9,23 @@
 */
 
 import React from 'react';
-import { Button } from '@mui/material';
+import { Button, type SxProps, type Theme } from '@mui/material';
+
+const primaryGridButtonSx: SxProps<Theme> = {
+  borderColor: '#13599f',
+  borderWidth: 1,
+  borderStyle: 'solid',
+  fontSize: '0.75em',
+  boxShadow: 'none',
+  textTransform: 'none',
+};
 
 interface ActionButtonsProps {
   handleDeleteRow?: () => void;
   setIsAddingRow?: React.Dispatch<React.SetStateAction<boolean>>;
   handleEditHistory: () => void;
   handleData: () => void;
+  handleHomePage: () => void;
 }
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({
@@ -23,6 +33,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   setIsAddingRow,
   handleEditHistory,
   handleData,
+  handleHomePage,
 }) => (
   <div style={{ padding: "0.5em", backgroundColor: "#1976D2" }}>
     <div style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
@@ -30,13 +41,8 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       <Button
         variant="contained"
         color="primary"
-        onClick={handleData}
-        style={{
-          borderColor: "white",
-          borderWidth: "1px",
-          borderStyle: "solid",
-          fontSize: "0.75em"
-        }}
+        onClick={handleHomePage}
+        sx={primaryGridButtonSx}
       >
         Drafty
       </Button>
@@ -45,12 +51,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         variant="contained"
         color="primary"
         onClick={handleData}
-        style={{
-          borderColor: "white",
-          borderWidth: "1px",
-          borderStyle: "solid",
-          fontSize: "0.75em"
-        }}
+        sx={primaryGridButtonSx}
       >
         CS Professors
       </Button>
@@ -59,12 +60,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         variant="contained"
         color="primary"
         onClick={handleEditHistory}
-        style={{
-          borderColor: "white",
-          borderWidth: "1px",
-          borderStyle: "solid",
-          fontSize: "0.75em"
-        }}
+        sx={primaryGridButtonSx}
       >
         Edit History
       </Button>
@@ -74,12 +70,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           variant="contained"
           color="primary"
           onClick={() => setIsAddingRow(true)}
-          style={{
-            borderColor: "white",
-            borderWidth: "1px",
-            borderStyle: "solid",
-            fontSize: "0.75em"
-          }}
+          sx={primaryGridButtonSx}
         >
           Add Row
         </Button>
@@ -90,12 +81,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           variant="contained"
           color="primary"
           onClick={handleDeleteRow}
-          style={{
-            borderColor: "white",
-            borderWidth: "1px",
-            borderStyle: "solid",
-            fontSize: "0.75em"
-          }}
+          sx={primaryGridButtonSx}
         >
           Delete Row
         </Button>

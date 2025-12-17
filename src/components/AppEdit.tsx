@@ -111,6 +111,10 @@ export default function App() {
     window.history.replaceState(null, '', '?' + params.toString());
   }, [columnFilters, columns]);
 
+  const handleHomePage = () => {
+    window.location.href = "/drafty3/";
+  }
+
   const handleData = () => {
     window.location.href = "/drafty3/csprofs";
   }
@@ -122,6 +126,7 @@ export default function App() {
   return (
     <div className="App" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <ActionButtons
+        handleHomePage={handleHomePage}
         handleData={handleData}
         handleEditHistory={handleEditHistory}
       />

@@ -413,6 +413,10 @@ export default function App() {
     setIsAddingRow(false);
   };
 
+  const handleHomePage = () => {
+    window.location.href = "/drafty3/";
+  }
+
   const handleData = () => {
     window.location.href = "/drafty3/csprofs";
   }
