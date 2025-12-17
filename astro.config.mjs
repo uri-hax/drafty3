@@ -2,18 +2,21 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 
-// https://astro.build/config
+const basePath = process.env.PUBLIC_BASE_PATH || '/drafty3';
+const localDevAPI = process.env.PUBLIC_LOCAL_DEV_API || 'http://localhost:8081';
+
 export default defineConfig({
-    integrations: [react()],
-    output: 'static',
-    site: 'https://uri-hax.github.io',
-    base: "/drafty3", 
-    // temporary proxy to backend during development
-    vite: {
-      server: {
-        proxy: {
-          "/api": "http://localhost:8081",
-        },
+  integrations: [react()],
+  output: 'static',
+  site: 'https://uri-hax.github.io',
+  base: basePath,
+
+  // DEV ONLY proxy
+  vite: {
+    server: {
+      proxy: {
+        '/api': localDevAPI,
       },
     },
-  });
+  },
+});
