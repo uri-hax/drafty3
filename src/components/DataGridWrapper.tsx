@@ -9,7 +9,7 @@
 
   Requires:
   - columns, filteredData, columnSchema: to know how to render each cell
-  - onCellEdited, onCellActivated, onGridSelectionChange: parent event handlers
+  - onCellEdited, onCellEditorActivated, onGridSelectionChange: parent event handlers
   - gridSelection: current selection state
   - gridWidth: width of the grid in pixels
 */
@@ -57,27 +57,41 @@ interface DataGridWrapperProps {
   columns: GridColumn[];
   filteredData: ColumnData[];
   onCellEdited?: ([col, row]: Item, newValue: EditableGridCell | BubbleCell) => void;
-  onCellActivated?: (cell: Item) => void;
+  onCellEditorActivated?: (cell: Item) => void;
   gridSelection?: GridSelection;
   onGridSelectionChange?: (newSelection: GridSelection) => void;
   gridWidth: number;
   columnSchema: Record<string, string>;
+
+  onHeaderSort?: (colKey: string) => void;
+  sortColKey?: string | null;
+  sortDir?: "asc" | "desc";
 }
 
 const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
   columns,
   filteredData,
   onCellEdited,
-  onCellActivated,
+  onCellEditorActivated,
   gridSelection,
   onGridSelectionChange,
   gridWidth,
   columnSchema,
+
+  onHeaderSort,
+  sortColKey = null,
+  sortDir = "asc",
 }) => {
   const editable = Boolean(onCellEdited);
 
+  const columnsWithSort = columns.map((c) => {
+    const key = c.id as string;
+    const indicator = sortColKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
+    return { ...c, title: `${c.title}${indicator}` };
+  });
+
   const getData = ([col, row]: Item): GridCell => {
-    const colKey = columns[col].id as string;
+    const colKey = columnsWithSort[col].id as string;
     const cellData = filteredData[row]?.[colKey];
     const colType = columnSchema[colKey] || 'string';
 
@@ -102,7 +116,7 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
 
   return (
     <DataEditor
-      columns={columns}
+      columns={columnsWithSort}
       getCellContent={getData}
       rows={filteredData.length}
       onCellEdited={onCellEdited}
@@ -110,7 +124,7 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
       rowSelect="none"
       columnSelect="none"
       rangeSelect="cell"
-      onCellActivated={onCellActivated}
+      onCellActivated={onCellEditorActivated}
       onGridSelectionChange={onGridSelectionChange}
       gridSelection={gridSelection}
       showSearch={false}
@@ -127,6 +141,11 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
       // disable select all - not entirely working yet
       keybindings={{
         selectAll: false,
+      }}
+
+      onHeaderClicked={(col) => {
+        const colKey = columns[col].id as string;
+        onHeaderSort?.(colKey);
       }}
     />
   );

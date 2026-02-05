@@ -1,5 +1,3 @@
-// src/components/App.tsx
-
 /*
   This component orchestrates the entire application:
   - Fetches CSV data and optional YAML schema using fetchCsvData, producing:
@@ -79,6 +77,11 @@ export default function App() {
     rows: CompactSelection.empty(),
     columns: CompactSelection.empty(),
   });
+
+  type SortDir = "asc" | "desc";
+
+  const [sortColKey, setSortColKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
   // const originBase = new URL(import.meta.env.BASE_URL || '/', window.location.origin);
@@ -184,8 +187,10 @@ export default function App() {
       })
     );
 
-    setFilteredData(filtered);
-  }, [columnFilters, data, columns]);
+    const finalRows = sortColKey ? sortRows(filtered, sortColKey, sortDir) : filtered;
+
+    setFilteredData(finalRows);
+  }, [columnFilters, data, columns, sortColKey, sortDir]);
 
   useEffect(() => {
     if (columns.length === 0) {
@@ -286,33 +291,30 @@ export default function App() {
     });
   }, [columnSchema, newRowData]);
 
-  const onCellActivated = (cell: Item) => {
+  const onCellEditorActivated = (cell: Item) => {
     if (!session) {
       return;
     }
 
     const [col, row] = cell;
-    console.log("Column: ", col, " Row: ", row);
-
-    const actualRowIndex = data.indexOf(filteredData[row]);
-    const rowData = data[actualRowIndex];
-    const idSuggestion = actualRowIndex;
-    recordCellClick(idSuggestion, rowData);
+    const rowObj = filteredData[row];
+    const rowId = Number(rowObj["idUniqueID"]);
+    // id is now row index * num columns + col index
+    const cellId = rowId * columns.length + col;
+    recordCellClick(cellId, rowObj);
 
     const colKey = columns[col].id as string;
     const colType = columnSchema[colKey] || "string";
-    console.log(cell)
 
-    if (colType === 'string[]') {
+    if (colType === "string[]") {
       setEditingCell({ row, colKey });
-      const actualRowIndex = data.indexOf(filteredData[row]);
-      console.log("Column: ", col, " Actual Row: ", actualRowIndex);
-      const cellData = data[actualRowIndex][colKey];
-      console.log(cellData);
+
+      const cellData = rowObj[colKey];
       setSelectedOptions(Array.isArray(cellData) ? cellData : []);
       setIsOverlayVisible(true);
     }
   };
+
 
   const handleSaveOptions = () => {
     if (editingCell) {
@@ -352,6 +354,20 @@ export default function App() {
   };
 
   const onGridSelectionChange = (newSelection: GridSelection) => {
+    const cell = newSelection.current?.cell;
+
+    if (cell) {
+      const [col, row] = cell;
+
+      const rowObj = filteredData[row];
+      if (rowObj) {
+        const rowId = Number(rowObj["idUniqueID"]);
+        // id is now row index * num columns + col index
+        const cellId = rowId * columns.length + col;
+        recordCellClick(cellId, rowObj);
+      }
+    }
+
     setGridSelection(newSelection);
   };
 
@@ -369,8 +385,7 @@ export default function App() {
       });
 
       recordRowDelete();
-    } 
-    else if (gridSelection.current && gridSelection.current.cell) {
+    } else if (gridSelection.current && gridSelection.current.cell) {
       const [, row] = gridSelection.current.cell;
       const rowData = filteredData[row];
 
@@ -383,8 +398,7 @@ export default function App() {
       });
 
       recordRowDelete();
-    } 
-    else {
+    } else {
       setSnackbarOpen(true);
     }
   };
@@ -394,23 +408,70 @@ export default function App() {
   };
 
   const handleAddRowConfirm = () => {
-    if (!allFieldsFilled) return;
+    if (!allFieldsFilled) {
+      return;
+    }
 
-    const updatedData = [...data, newRowData];
+    // fix works assuming idUniqueID increments by 1
+    const lastRow = data[data.length - 1];
+    const newRowId = Number(lastRow["idUniqueID"]) + 1;
 
-    const idSuggestion = updatedData.length - 1;
-    recordRowAdd(idSuggestion);
+    const rowToAdd: ColumnData = {
+      ...newRowData,
+      idUniqueID: String(newRowId),
+    };
 
-    setData(updatedData);
-    setFilteredData(updatedData);
+    // id is now row index * num columns + col index
+    const cellId = newRowId * columns.length + 0;
+    recordRowAdd(cellId);
+
+    setData((prev) => [...prev, rowToAdd]);
+
     const resetObj: ColumnData = {};
-
     for (const key of Object.keys(columnSchema)) {
-      resetObj[key] = columnSchema[key] === 'string[]' ? [] : '';
+      resetObj[key] = columnSchema[key] === "string[]" ? [] : "";
     }
 
     setNewRowData(resetObj);
     setIsAddingRow(false);
+  };
+
+  const valueToString = (v: unknown): string => {
+    if (v == null) {
+      return "";
+    }
+    if (Array.isArray(v)) {
+      return [...v].sort().join(", ");
+    }
+    return String(v);
+  };
+
+  const sortRows = (
+    rows: ColumnData[],
+    colKey: string,
+    dir: "asc" | "desc"
+  ): ColumnData[] => {
+    return [...rows].sort((r1, r2) => {
+      const a = valueToString(r1[colKey]);
+      const b = valueToString(r2[colKey]);
+
+      if (dir === "asc") {
+        return a.localeCompare(b);
+      } 
+      else {
+        return b.localeCompare(a);
+      }
+    });
+  };
+
+  const handleHeaderSort = (colKey: string) => {
+    if (sortColKey !== colKey) {
+      setSortColKey(colKey);
+      setSortDir("asc");
+    } 
+    else {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    }
   };
 
   const handleHomePage = () => {
@@ -451,11 +512,15 @@ export default function App() {
           columns={columns}
           filteredData={filteredData}
           onCellEdited={onCellEdited}
-          onCellActivated={onCellActivated}
+          onCellEditorActivated={onCellEditorActivated}
           gridSelection={gridSelection}
           onGridSelectionChange={onGridSelectionChange}
           gridWidth={gridWidth}
           columnSchema={columnSchema}
+
+          onHeaderSort={handleHeaderSort}
+          sortColKey={sortColKey}
+          sortDir={sortDir}
         />
       </div>
 
