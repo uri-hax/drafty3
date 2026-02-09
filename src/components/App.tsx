@@ -28,7 +28,9 @@ import FilterBar from './Filter';
 import ActionButtons from './ActionButtons';
 import DataGridWrapper from './DataGridWrapper';
 import MultiSelectModal from './MultiSelectModal';
+import TextInputModal from "./TextInputModal";
 import AddRowFooter from './AddRowFooter';
+import DeleteRowFooter from './DeleteRowFooter';
 import { ensureSession, type BackendSession } from "../lib/sessions";
 import { recordCellClick, recordCellEdit, recordColumnSearch, recordRowAdd, recordRowDelete } from "../lib/interactions"
 
@@ -86,6 +88,13 @@ export default function App() {
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
   // const originBase = new URL(import.meta.env.BASE_URL || '/', window.location.origin);
   // const url = (p: string) => new URL(p.replace(/^\//, ''), originBase).href;
+
+  const [isDeletingRow, setIsDeletingRow] = useState<boolean>(false);
+  const [deleteComment, setDeleteComment] = useState<string>("");
+  const [pendingDeleteRows, setPendingDeleteRows] = useState<ColumnData[]>([]);
+
+  const [isTextOverlayVisible, setIsTextOverlayVisible] = useState<boolean>(false);
+  const [textDraft, setTextDraft] = useState<string>("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -291,6 +300,10 @@ export default function App() {
     });
   }, [columnSchema, newRowData]);
 
+  const isDeleteCommentFilled = React.useMemo(() => {
+    return deleteComment.trim() !== "";
+  }, [deleteComment]);
+
   const onCellEditorActivated = (cell: Item) => {
     if (!session) {
       return;
@@ -313,8 +326,17 @@ export default function App() {
       setSelectedOptions(Array.isArray(cellData) ? cellData : []);
       setIsOverlayVisible(true);
     }
-  };
 
+    setEditingCell({ row, colKey });
+
+    const currentValue =
+      rowObj[colKey] !== undefined && rowObj[colKey] !== null
+        ? String(rowObj[colKey])
+        : "";
+
+    setTextDraft(currentValue);
+    setIsTextOverlayVisible(true);
+  };
 
   const handleSaveOptions = () => {
     if (editingCell) {
@@ -326,6 +348,23 @@ export default function App() {
       setFilteredData(updatedData);
       setIsOverlayVisible(false);
       setEditingCell(null);
+
+      recordCellEdit();
+    }
+  };
+
+  const handleSaveText = () => {
+    if (editingCell) {
+      const { row, colKey } = editingCell;
+      const updatedData = [...data];
+      const actualRowIndex = data.indexOf(filteredData[row]);
+      updatedData[actualRowIndex][colKey] = textDraft
+      setData(updatedData);
+      setFilteredData(updatedData);
+      setIsTextOverlayVisible(false);
+      setEditingCell(null);
+
+      recordCellEdit();
     }
   };
 
@@ -372,35 +411,64 @@ export default function App() {
   };
 
   const handleDeleteRow = () => {
+    let selectedRows: ColumnData[] = [];
+
     if (gridSelection.rows.length > 0) {
       const selectedRowIndices = gridSelection.rows.toArray();
-      const selectedRows = selectedRowIndices.map((index) => filteredData[index]);
-
-      setData((prev) => prev.filter((row) => !selectedRows.includes(row)));
-      setFilteredData((prev) => prev.filter((row) => !selectedRows.includes(row)));
-      setGridSelection({
-        current: undefined,
-        rows: CompactSelection.empty(),
-        columns: CompactSelection.empty(),
-      });
-
-      recordRowDelete();
-    } else if (gridSelection.current && gridSelection.current.cell) {
+      selectedRows = selectedRowIndices
+        .map((index) => filteredData[index])
+        .filter(Boolean);
+    } 
+    else if (gridSelection.current?.cell) {
       const [, row] = gridSelection.current.cell;
       const rowData = filteredData[row];
-
-      setData((prev) => prev.filter((r) => r !== rowData));
-      setFilteredData((prev) => prev.filter((r) => r !== rowData));
-      setGridSelection({
-        current: undefined,
-        rows: CompactSelection.empty(),
-        columns: CompactSelection.empty(),
-      });
-
-      recordRowDelete();
-    } else {
-      setSnackbarOpen(true);
+      if (rowData) {
+        selectedRows = [rowData];
+      }
     }
+
+    if (selectedRows.length === 0) {
+      setSnackbarOpen(true);
+      setIsDeletingRow(false);
+      return;
+    }
+
+    setPendingDeleteRows(selectedRows);
+    setDeleteComment("");
+    setIsDeletingRow(true);
+    setIsAddingRow(false);
+  };
+
+  const handleDeleteRowConfirm = () => {
+    if (!isDeleteCommentFilled) {
+      return;
+    }
+    if (pendingDeleteRows.length === 0) {
+      setIsDeletingRow(false);
+      setDeleteComment("");
+      return;
+    }
+
+    setData((prev) => prev.filter((row) => !pendingDeleteRows.includes(row)));
+    setFilteredData((prev) => prev.filter((row) => !pendingDeleteRows.includes(row)));
+
+    setGridSelection({
+      current: undefined,
+      rows: CompactSelection.empty(),
+      columns: CompactSelection.empty(),
+    });
+
+    recordRowDelete(deleteComment);
+
+    setIsDeletingRow(false);
+    setDeleteComment("");
+    setPendingDeleteRows([]);
+  };
+
+  const handleDeleteRowCancel = () => {
+    setIsDeletingRow(false);
+    setDeleteComment("");
+    setPendingDeleteRows([]);
   };
 
   const handleSnackbarClose = () => {
@@ -494,6 +562,7 @@ export default function App() {
         handleEditHistory={handleEditHistory}
         setIsAddingRow={setIsAddingRow}
         handleDeleteRow={handleDeleteRow}
+        setIsDeletingRow={setIsDeletingRow}
       />
 
       {columns.length > 0 ? (
@@ -535,6 +604,15 @@ export default function App() {
         title = "Select Value(s)"
       />
 
+      <TextInputModal
+        isOverlayVisible={isTextOverlayVisible}
+        setIsOverlayVisible={setIsTextOverlayVisible}
+        title={"Edit Value"}
+        value={textDraft}
+        setValue={setTextDraft}
+        handleSave={handleSaveText}
+      />
+
       <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={handleSnackbarClose}>
         <Alert onClose={handleSnackbarClose} severity="warning">
           Please select a cell or row first.
@@ -551,6 +629,16 @@ export default function App() {
           setIsAddingRow={setIsAddingRow}
           allFieldsFilled={allFieldsFilled}
           columnSchema={columnSchema}
+        />
+      )}
+
+      {isDeletingRow && (
+        <DeleteRowFooter
+          comment={deleteComment}
+          setComment={setDeleteComment}
+          handleDeleteRowConfirm={handleDeleteRowConfirm}
+          onCancel={handleDeleteRowCancel}
+          isCommentFilled={isDeleteCommentFilled}
         />
       )}
     </div>

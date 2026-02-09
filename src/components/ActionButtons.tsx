@@ -46,6 +46,7 @@ const gridActionButtonSx: SxProps<Theme> = {
 
 interface ActionButtonsProps {
   handleDeleteRow?: () => void;
+  setIsDeletingRow?: React.Dispatch<React.SetStateAction<boolean>>;
   setIsAddingRow?: React.Dispatch<React.SetStateAction<boolean>>;
   handleEditHistory: () => void;
   handleData: () => void;
@@ -54,6 +55,7 @@ interface ActionButtonsProps {
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({
   handleDeleteRow,
+  setIsDeletingRow,
   setIsAddingRow,
   handleEditHistory,
   handleData,
@@ -107,10 +109,13 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       )}
 
       {/* Delete row */}
-      {handleDeleteRow && (
+      {handleDeleteRow && setIsDeletingRow && (
         <Tooltip title="Delete Row" arrow>
           <Button
-            onClick={handleDeleteRow}
+            onClick={() => {
+              setIsDeletingRow(true);
+              handleDeleteRow();
+            }}
             sx={gridActionButtonSx}
             startIcon={
               <IndeterminateCheckBoxRoundedIcon fontSize="small" />

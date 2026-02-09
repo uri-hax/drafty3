@@ -82,7 +82,6 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
   sortColKey = null,
   sortDir = "asc",
 }) => {
-  const editable = Boolean(onCellEdited);
 
   const columnsWithSort = columns.map((c) => {
     const key = c.id as string;
@@ -100,7 +99,7 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
       return {
         kind: GridCellKind.Bubble,
         data: bubbleData,
-        allowOverlay: editable,
+        allowOverlay: false,
       };
     }
 
@@ -110,7 +109,7 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
       kind: GridCellKind.Text,
       data: textData,
       displayData: textData,
-      allowOverlay: editable,
+      allowOverlay: false,
     };
   };
 

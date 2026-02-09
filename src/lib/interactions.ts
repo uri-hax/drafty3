@@ -105,13 +105,15 @@ export function recordRowAdd(
 }
 
 // row delete
-export function recordRowDelete() {
+export function recordRowDelete(
+  comment: string
+) {
   recordInteraction(
     `${getAPI()}/editdelrows`,
     {
       IDInteractionType: 4, // placeholder
       IDEntryType: 3,       // placeholder
-      Comment: "",          // placeholder
+      Comment: comment,
       // Mode and IsCorrect will use defaults for now
       Mode: "normal",
       IsCorrect: 2,
