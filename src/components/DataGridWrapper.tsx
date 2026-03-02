@@ -25,7 +25,7 @@ import {
   type BubbleCell,
   type GridSelection,
 } from "@glideapps/glide-data-grid";
-import type { ColumnData } from '../interfaces/ColumnData';
+import type { ColumnConfig, ColumnData } from '../interfaces/ColumnData';
 
 const draftyOld = {
   //bgCell: "#0f172a",
@@ -61,7 +61,7 @@ interface DataGridWrapperProps {
   gridSelection?: GridSelection;
   onGridSelectionChange?: (newSelection: GridSelection) => void;
   gridWidth: number;
-  columnSchema: Record<string, string>;
+  columnSchema: Record<string, ColumnConfig>;
 
   onHeaderSort?: (colKey: string) => void;
   sortColKey?: string | null;
@@ -92,7 +92,7 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
   const getData = ([col, row]: Item): GridCell => {
     const colKey = columnsWithSort[col].id as string;
     const cellData = filteredData[row]?.[colKey];
-    const colType = columnSchema[colKey] || 'string';
+    const colType = columnSchema[colKey].type || 'string';
 
     if (colType === 'string[]') {
       const bubbleData = Array.isArray(cellData) ? cellData as string[] : [];

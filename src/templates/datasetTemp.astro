@@ -3,11 +3,18 @@ import fs from 'fs';
 import path from 'path';
 import Papa from 'papaparse';
 
+const { dataset } = Astro.props;
+
+const csvFile =
+  dataset === "csprofs"
+    ? "suggestions.csv"
+    : "students.csv";
+
 // 1. Read CSV
-const csvPath = path.resolve('./public/suggestions.csv');
+const csvPath = path.resolve(`./public/${csvFile}`);
 const csvText = fs.readFileSync(csvPath, 'utf-8');
 
-// 2. Parse CSV with types
+// 2. Parse CSV with types (assuming has idUniqueID column)
 type Row = {
   idUniqueID: string;
   [key: string]: string;

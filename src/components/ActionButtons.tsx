@@ -45,6 +45,7 @@ const gridActionButtonSx: SxProps<Theme> = {
 };
 
 interface ActionButtonsProps {
+  datasetLabel: string;
   handleDeleteRow?: () => void;
   setIsDeletingRow?: React.Dispatch<React.SetStateAction<boolean>>;
   setIsAddingRow?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -54,6 +55,7 @@ interface ActionButtonsProps {
 }
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({
+  datasetLabel,
   handleDeleteRow,
   setIsDeletingRow,
   setIsAddingRow,
@@ -74,13 +76,13 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       </Button>
 
       {/* Data view */}
-      <Tooltip title="CS Professors" arrow>
+      <Tooltip title={datasetLabel} arrow>
         <Button
           onClick={handleData}
           sx={gridActionButtonSx}
           startIcon={<TableViewIcon fontSize="small" />}
         >
-          CS Professors
+          {datasetLabel}
         </Button>
       </Tooltip>
 

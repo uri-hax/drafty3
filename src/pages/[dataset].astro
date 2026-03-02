@@ -1,9 +1,18 @@
 ---
-import CsProfsTemplate from '../templates/csprofsTemp.astro';
+import DatasetTemplate from '../templates/datasetTemp.astro';
 import App from '../components/App.tsx';
 import appCssUrl from '../components/App.css?url';
 
 export const prerender = true;
+
+export function getStaticPaths() {
+  return [
+    { params: { dataset: "csprofs" } },
+    { params: { dataset: "students" } },
+  ];
+}
+
+const { dataset } = Astro.params;
 ---
 
 <html lang="en">
@@ -13,7 +22,7 @@ export const prerender = true;
     <title>Drafty Prototype</title>
   </head>
   <body>
-    <CsProfsTemplate />
+    <DatasetTemplate dataset={dataset} />
     <link rel="stylesheet" href={appCssUrl} />
     <App client:only="react" />
   </body>

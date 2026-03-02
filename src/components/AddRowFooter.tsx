@@ -20,7 +20,7 @@ import {
   Autocomplete,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import type { ColumnData } from '../interfaces/ColumnData';
+import type { ColumnConfig, ColumnData } from '../interfaces/ColumnData';
 
 const monoFont =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
@@ -33,7 +33,7 @@ interface AddRowFooterProps {
   handleAddRowConfirm: () => void;
   setIsAddingRow: React.Dispatch<React.SetStateAction<boolean>>;
   allFieldsFilled: boolean;
-  columnSchema: Record<string, string>;
+  columnSchema: Record<string, ColumnConfig>;
 }
 
 const AddRowFooter: React.FC<AddRowFooterProps> = ({
@@ -65,7 +65,7 @@ const AddRowFooter: React.FC<AddRowFooterProps> = ({
     {/* Inputs */}
     <div style={{ display: 'flex', flex: 1, alignItems: 'center', overflowX: 'auto' }}>
       {columnKeys.map((key) => {
-        const colType = columnSchema[key] || 'string';
+        const colType = columnSchema[key].type || 'string';
 
         // --- string[] columns ---
         if (colType === 'string[]') {
@@ -175,7 +175,7 @@ const AddRowFooter: React.FC<AddRowFooterProps> = ({
           setNewRowData(() => {
             const reset: ColumnData = {};
             for (const key of columnKeys) {
-              reset[key] = columnSchema[key] === 'string[]' ? [] : '';
+              reset[key] = columnSchema[key].type === 'string[]' ? [] : '';
             }
             return reset;
           });

@@ -1,6 +1,29 @@
-FullName: string
-University: string
-JoinYear: string
-SubField: string[]
-Bachelors: string
-Doctorate: string
+FullName:
+  type: string
+  width: "15%"
+  edit: free_text
+
+University:
+  type: string
+  width: "20%"
+  edit: dropdown
+
+JoinYear:
+  type: string
+  width: "6%"
+  edit: dropdown
+
+SubField:
+  type: string[]
+  width: "18%"
+  edit: multi_select
+
+Bachelors:
+  type: string
+  width: "20%"
+  edit: dropdown_free_text
+
+Doctorate:
+  type: string
+  width: "20%"
+  edit: dropdown_free_text

@@ -3,14 +3,21 @@ export function getAPI(): string {
 
   const { hostname, pathname } = window.location;
 
-  if (hostname === 'localhost') return '/api';
+  const base = import.meta.env.BASE_URL;
+  const dataset = window.location.pathname
+    .replace(base, "")
+    .split("/")
+    .filter(Boolean)[0];
+
+  if (hostname === "localhost") return dataset ? `/api/${dataset}` : "/api/csprofs"; // temp default
+  const apiBase = (import.meta.env.PUBLIC_API_BASE || "").replace(/\/$/, "");
 
   if (
     hostname === 'uri-hax.github.io' &&
     pathname.startsWith(import.meta.env.PUBLIC_BASE_PATH)
   ) {
-    return import.meta.env.PUBLIC_API_BASE;
+    return `${apiBase}${dataset}`;
   }
 
-  return import.meta.env.PUBLIC_API_BASE;
+  return `${apiBase}${dataset}`;
 }

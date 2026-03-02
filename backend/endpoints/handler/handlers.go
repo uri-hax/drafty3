@@ -1163,22 +1163,35 @@ func NewSuggestionTypeHandler(db *gorm.DB) *SuggestionTypeHandler {
 	return &SuggestionTypeHandler{DB: db}
 }
 
-// GetSuggestionType handles GET /api/suggestiontypes/:id
+// GetSuggestionType handles GET /api/suggestiontypes/:name
 func (h *SuggestionTypeHandler) GetSuggestionType(c echo.Context) error {
-	// lookup row by idSuggestionType
-	id := c.Param("id")
+	// lookup row by name
+	name := c.Param("name")
 
-	// try to find the row and error if can't
-	var st model.SuggestionType
-	if err := h.DB.First(&st, "idSuggestionType = ?", id).Error; err != nil {
-		return c.JSON(http.StatusNotFound, echo.Map{
-			"error": "SuggestionType not found",
-			"id":    id,
+	// make sure name is provided
+	if name == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error": "name parameter is required",
 		})
 	}
 
-	// return the row
-	return c.JSON(http.StatusOK, st)
+	// try to find the row and error if can't
+	var st model.SuggestionType
+	if err := h.DB.
+		Select("idSuggestionType").
+		Where("LOWER(name) = LOWER(?)", name).
+		First(&st).Error; err != nil {
+
+		return c.JSON(http.StatusNotFound, echo.Map{
+			"error": "SuggestionType not found",
+			"name":  name,
+		})
+	}
+
+	// return the id of the row
+	return c.JSON(http.StatusOK, echo.Map{
+		"idSuggestionType": st.IDSuggestionType,
+	})
 }
 
 // CreateSuggestionType handles POST /api/suggestiontypes
@@ -1505,20 +1518,31 @@ func NewSuggestionTypeValuesHandler(db *gorm.DB) *SuggestionTypeValuesHandler {
 
 // GetSuggestionTypeValues handles GET /api/suggestiontypevalues/:id
 func (h *SuggestionTypeValuesHandler) GetSuggestionTypeValues(c echo.Context) error {
-	// lookup row by idSuggestionType
+	// lookup rows by idSuggestionType
 	id := c.Param("id")
 
-	// try to find the row and error if can't
-	var stv model.SuggestionTypeValues
-	if err := h.DB.First(&stv, "idSuggestionType = ?", id).Error; err != nil {
-		return c.JSON(http.StatusNotFound, echo.Map{
-			"error": "SuggestionTypeValues not found",
-			"id":    id,
+	// make sure id is provided
+	if id == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error": "id parameter is required",
 		})
 	}
 
-	// return the row
-	return c.JSON(http.StatusOK, stv)
+	// find all active rows for this suggestion type
+	var stvs []model.SuggestionTypeValues
+	if err := h.DB.
+		Where("idSuggestionType = ? AND active = 1", id).
+		Order("value ASC").
+		Find(&stvs).Error; err != nil {
+
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to fetch suggestion type values",
+			"detail": err.Error(),
+		})
+	}
+
+	// return matched rows 
+	return c.JSON(http.StatusOK, stvs)
 }
 
 // CreateSuggestionTypeValues handles POST /api/suggestiontypevalues

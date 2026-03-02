@@ -4,7 +4,7 @@
     * parsedData: dynamically typed rows (ColumnData)
     * gridColumns: columns derived from the CSV headers (excluding 'UniqueId')
     * optionsLists: unique option lists for 'string[]' columns
-    * columnSchema: defines the type (string or string[]) for each column
+    * columnSchema: defines the type (string or string[]) and width and edit type for each column
   - Handles filtering rows by user-entered text queries in each column
   - Provides add/delete functionality for rows
   - Integrates a multi-select modal (MultiSelectModal) for editing string[] columns
@@ -28,20 +28,15 @@ import FilterBar from './Filter';
 import ActionButtons from './ActionButtons';
 import DataGridWrapper from './DataGridWrapper';
 import MultiSelectModal from './MultiSelectModal';
-import TextInputModal from "./TextInputModal";
+import TextInputModal from "./FreeTextModal";
+import DropdownModal from "./DropdownModal";
+import DropdownFreeTextModal from "./DropdownFreeTextModal";
 import AddRowFooter from './AddRowFooter';
 import DeleteRowFooter from './DeleteRowFooter';
 import { ensureSession, type BackendSession } from "../lib/sessions";
 import { recordCellClick, recordCellEdit, recordColumnSearch, recordRowAdd, recordRowDelete } from "../lib/interactions"
-
-const customWidths: Record<string, string> = {
-  FullName: "15%",
-  University: "20%",
-  JoinYear: "6%",
-  SubField: "18%",
-  Bachelors: "20%",
-  Doctorate: "20%"
-};
+import type { ColumnConfig } from '../interfaces/ColumnData';
+import { getColumnId, getSuggestionTypeValues } from "../lib/edits";
 
 export default function App() {
   useEffect(() => {
@@ -66,12 +61,12 @@ export default function App() {
   const [data, setData] = useState<ColumnData[]>([]);
   const [filteredData, setFilteredData] = useState<ColumnData[]>([]);
   const [optionsLists, setOptionsLists] = useState<Record<string, string[]>>({});
-  const [columnSchema, setColumnSchema] = useState<Record<string, string>>({});
+  const [columnSchema, setColumnSchema] = useState<Record<string, ColumnConfig>>({});
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [isAddingRow, setIsAddingRow] = useState<boolean>(false);
   const [newRowData, setNewRowData] = useState<ColumnData>({});
-  const [isOverlayVisible, setIsOverlayVisible] = useState<boolean>(false);
-  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  const [isMultiOverlayVisible, setIsMultiOverlayVisible] = useState<boolean>(false);
+  const [selectedMultiOptions, setSelectedMultiOptions] = useState<string[]>([]);
   const [editingCell, setEditingCell] = useState<{ row: number; colKey: string } | null>(null);
 
   const [gridSelection, setGridSelection] = useState<GridSelection>({
@@ -96,15 +91,41 @@ export default function App() {
   const [isTextOverlayVisible, setIsTextOverlayVisible] = useState<boolean>(false);
   const [textDraft, setTextDraft] = useState<string>("");
 
+  const [isDropdownOverlayVisible, setIsDropdownOverlayVisible] = useState<boolean>(false);
+  const [isDropdownFreeTextOverlayVisible, setIsDropdownFreeTextOverlayVisible] = useState<boolean>(false);
+
+  const [freeTextAltDraft, setFreeTextAltDraft] = useState<string>("");
+
+  const [suggestionTypeIds, setSuggestionTypeIds] = useState<Record<string, number>>({});
+  const [suggestionTypeValues, setSuggestionTypeValues] = useState<Record<string, string[]>>({});
+
+  const [activeOptionsList, setActiveOptionsList] = useState<string[]>([]);
+
+  const datasetFiles: Record<string, { csv: string; yaml: string; }> = {
+    csprofs: {
+      csv: "suggestions.csv",
+      yaml: "csprofessors.yaml",
+    },
+    students: {
+      csv: "students.csv",
+      yaml: "students.yaml",
+    },
+  };
+
+  const base = import.meta.env.BASE_URL;
+  const dataset = window.location.pathname
+    .replace(base, "")
+    .split("/")
+    .filter(Boolean)[0];
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         const { gridColumns, parsedData, optionsLists, columnSchema } =
           await fetchCsvData(
             gridWidth,
-            customWidths,
-            '/drafty3/suggestions.csv',
-            '/drafty3/csprofessors.yaml'
+            `${base}${datasetFiles[dataset].csv}`,
+            `${base}${datasetFiles[dataset].yaml}`
           );
   
         console.log("Grid Columns:", gridColumns);
@@ -117,6 +138,34 @@ export default function App() {
         setFilteredData(parsedData);
         setOptionsLists(optionsLists);
         setColumnSchema(columnSchema);
+
+        const schemaColumnNames = Object.keys(columnSchema);
+
+        const idPairs = await Promise.all(
+          schemaColumnNames.map(
+            (name) =>
+              new Promise<[string, number] | null>((resolve) => {
+                getColumnId(
+                  name,
+                  (res) => resolve([name, res.idSuggestionType]),
+                  () => resolve(null) 
+                );
+              })
+          )
+        );
+
+        const idMap: Record<string, number> = {};
+        for (const pair of idPairs) {
+          if (!pair) {
+            continue;
+          }
+          const [name, id] = pair;
+          idMap[name] = id;
+        }
+
+        setSuggestionTypeIds(idMap);
+
+        console.log("SuggestionType IDs:", idMap);
   
         const params = new URLSearchParams(window.location.search);
         const initialFilters: Record<string, string> = {};
@@ -162,7 +211,7 @@ export default function App() {
         const initialNewRowData: ColumnData = {};
         for (const key of columnKeys) {
           initialNewRowData[key] =
-            columnSchema[key] === "string[]" ? [] : "";
+            columnSchema[key]?.type === "string[]" ? [] : "";
         }
   
         setNewRowData(initialNewRowData);
@@ -216,6 +265,13 @@ export default function App() {
 
     window.history.replaceState(null, '', '?' + params.toString());
   }, [columnFilters, columns]);
+
+  const customWidths: Record<string, string> = {};
+    for (const key of Object.keys(columnSchema)) {
+      if (columnSchema[key]?.width) {
+        customWidths[key] = columnSchema[key].width;
+      }
+    }
 
   const getColumnMatches = (colKey: string, value: string, rows: ColumnData[]): string[] => {
     const search = value.trim().toLowerCase();
@@ -288,7 +344,7 @@ export default function App() {
     if (!Object.keys(columnSchema).length || !Object.keys(newRowData).length) return false;
 
     return Object.keys(columnSchema).every((key) => {
-      const colType = columnSchema[key];
+      const colType = columnSchema[key].type;
       const val = newRowData[key];
 
       if (colType === 'string[]') {
@@ -304,6 +360,42 @@ export default function App() {
     return deleteComment.trim() !== "";
   }, [deleteComment]);
 
+  const getOptionsForCol = (colKey: string) =>
+    suggestionTypeValues[colKey] ?? optionsLists[colKey] ?? [];
+
+  const ensureSuggestionValuesLoaded = (colKey: string) => {
+    if (suggestionTypeValues[colKey]) {
+      return;
+    }
+
+    const id = suggestionTypeIds[colKey];
+    if (!id) {
+      return;
+    }
+
+    getSuggestionTypeValues(
+      id,
+      (rows) => {
+        const values = rows.map((r) => r.Value);
+        setSuggestionTypeValues((prev) => ({
+          ...prev,
+          [colKey]: values,
+        }));
+
+        setActiveOptionsList(values);
+      },
+      (err) => {
+        console.error(`Failed to load SuggestionTypeValues for ${colKey} (id=${id})`, err);
+        setSuggestionTypeValues((prev) => ({
+          ...prev,
+          [colKey]: [],
+        }));
+
+        setActiveOptionsList([]);
+      }
+    );
+  };
+
   const onCellEditorActivated = (cell: Item) => {
     if (!session) {
       return;
@@ -316,37 +408,71 @@ export default function App() {
     const cellId = rowId * columns.length + col;
     recordCellClick(cellId, rowObj);
 
+    setIsMultiOverlayVisible(false);
+    setIsTextOverlayVisible(false);
+    setIsDropdownOverlayVisible(false);
+    setIsDropdownFreeTextOverlayVisible(false);
+
     const colKey = columns[col].id as string;
-    const colType = columnSchema[colKey] || "string";
-
-    if (colType === "string[]") {
-      setEditingCell({ row, colKey });
-
-      const cellData = rowObj[colKey];
-      setSelectedOptions(Array.isArray(cellData) ? cellData : []);
-      setIsOverlayVisible(true);
-    }
+    setActiveOptionsList(getOptionsForCol(colKey));
+    const config = columnSchema[colKey];
+    const colType = config?.type ?? "string";
+    const editType =
+      config?.edit ?? (colType === "string[]" ? "multi_select" : "free_text");
 
     setEditingCell({ row, colKey });
+    if (
+      editType === "multi_select" ||
+      editType === "dropdown" ||
+      editType === "dropdown_free_text"
+    ) {
+      ensureSuggestionValuesLoaded(colKey);
+    }
+    const cellVal = rowObj[colKey];
 
-    const currentValue =
-      rowObj[colKey] !== undefined && rowObj[colKey] !== null
-        ? String(rowObj[colKey])
-        : "";
+    // multi select modal
+    if (colType === "string[]" && editType === "multi_select") {
+      setSelectedMultiOptions(Array.isArray(cellVal) ? cellVal : []);
+      setIsMultiOverlayVisible(true);
+      return;
+    }
 
-    setTextDraft(currentValue);
+    // free text modal
+    if (colType === "string" && editType === "free_text") {
+      setTextDraft(cellVal != null ? String(cellVal) : "");
+      setIsTextOverlayVisible(true);
+      return;
+    }
+
+    // dropdown modal
+    if (colType === "string" && editType === "dropdown") {
+      setTextDraft(cellVal != null ? String(cellVal) : "");
+      setIsDropdownOverlayVisible(true);
+      return;
+    }
+
+    // dropdown + free text modal
+    if (colType === "string" && editType === "dropdown_free_text") {
+      setTextDraft(cellVal != null ? String(cellVal) : ""); 
+      setFreeTextAltDraft(""); 
+      setIsDropdownFreeTextOverlayVisible(true);
+      return;
+    }
+
+    // fallback -> free text
+    setTextDraft(cellVal != null ? String(cellVal) : "");
     setIsTextOverlayVisible(true);
   };
 
-  const handleSaveOptions = () => {
+  const handleSaveMulti = () => {
     if (editingCell) {
       const { row, colKey } = editingCell;
       const updatedData = [...data];
       const actualRowIndex = data.indexOf(filteredData[row]);
-      updatedData[actualRowIndex][colKey] = [...selectedOptions];
+      updatedData[actualRowIndex][colKey] = [...selectedMultiOptions];
       setData(updatedData);
       setFilteredData(updatedData);
-      setIsOverlayVisible(false);
+      setIsMultiOverlayVisible(false);
       setEditingCell(null);
 
       recordCellEdit();
@@ -368,10 +494,44 @@ export default function App() {
     }
   };
 
+  const handleSaveDropdown = () => {
+    if (editingCell) {
+      const { row, colKey } = editingCell;
+      const updatedData = [...data];
+      const actualRowIndex = data.indexOf(filteredData[row]);
+      updatedData[actualRowIndex][colKey] = textDraft;
+      setData(updatedData);
+      setFilteredData(updatedData);
+      setIsDropdownOverlayVisible(false);
+      setEditingCell(null);
+
+      recordCellEdit();
+    }
+  };
+
+  const handleSaveDropdownFreeText = () => {
+    if (editingCell) {
+      const { row, colKey } = editingCell;
+      const updatedData = [...data];
+      const actualRowIndex = data.indexOf(filteredData[row]);
+
+      const finalValue =
+        freeTextAltDraft.trim() !== "" ? freeTextAltDraft.trim() : textDraft;
+
+      updatedData[actualRowIndex][colKey] = finalValue;
+      setData(updatedData);
+      setFilteredData(updatedData);
+      setIsDropdownFreeTextOverlayVisible(false);
+      setEditingCell(null);
+
+      recordCellEdit();
+    }
+  };
+
   const onCellEdited = (cell: Item, newValue: EditableGridCell | BubbleCell) => {
     const [col, row] = cell;
     const colKey = columns[col].id as string;
-    const colType = columnSchema[colKey] || 'string';
+    const colType = columnSchema[colKey].type || 'string';
     const updatedData = [...data];
     const actualRowIndex = data.indexOf(filteredData[row]);
 
@@ -497,7 +657,7 @@ export default function App() {
 
     const resetObj: ColumnData = {};
     for (const key of Object.keys(columnSchema)) {
-      resetObj[key] = columnSchema[key] === "string[]" ? [] : "";
+      resetObj[key] = columnSchema[key].type === "string[]" ? [] : "";
     }
 
     setNewRowData(resetObj);
@@ -543,20 +703,28 @@ export default function App() {
   };
 
   const handleHomePage = () => {
-    window.location.href = "/drafty3/";
+    window.location.href = `${base}`;
   }
 
   const handleData = () => {
-    window.location.href = "/drafty3/csprofs";
+    window.location.href = `${base}${datasetFiles[dataset].csv}`;
   }
 
   const handleEditHistory = () => {
-    window.location.href = "/drafty3/edit-history";
+    window.location.href = `${base}${dataset}/history`;
   };
+
+  const datasetLabels: Record<string, string> = {
+    csprofs: "CS Professors",
+    students: "Students",
+  };
+
+  const datasetLabel = datasetLabels[dataset];
 
   return (
     <div className="App" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <ActionButtons
+        datasetLabel={datasetLabel}
         handleHomePage={handleHomePage}
         handleData={handleData}
         handleEditHistory={handleEditHistory}
@@ -594,13 +762,13 @@ export default function App() {
       </div>
 
       <MultiSelectModal
-        isOverlayVisible={isOverlayVisible}
-        setIsOverlayVisible={setIsOverlayVisible}
-        handleSaveOptions={handleSaveOptions}
-        optionsList={editingCell ? (optionsLists[editingCell.colKey] || []) : []}
+        isOverlayVisible={isMultiOverlayVisible}
+        setIsOverlayVisible={setIsMultiOverlayVisible}
+        handleSaveOptions={handleSaveMulti}
+        optionsList={activeOptionsList}
         multiple={true}
-        selectedOptions={selectedOptions}
-        setSelectedOptions={setSelectedOptions}
+        selectedOptions={selectedMultiOptions}
+        setSelectedOptions={setSelectedMultiOptions}
         title = "Select Value(s)"
       />
 
@@ -611,6 +779,28 @@ export default function App() {
         value={textDraft}
         setValue={setTextDraft}
         handleSave={handleSaveText}
+      />
+
+      <DropdownModal
+        isOverlayVisible={isDropdownOverlayVisible}
+        setIsOverlayVisible={setIsDropdownOverlayVisible}
+        optionsList={activeOptionsList}
+        title={"Select Value"}
+        value={textDraft}
+        setValue={setTextDraft}
+        handleSave={handleSaveDropdown}
+      />
+
+      <DropdownFreeTextModal
+        isOverlayVisible={isDropdownFreeTextOverlayVisible}
+        setIsOverlayVisible={setIsDropdownFreeTextOverlayVisible}
+        optionsList={activeOptionsList}
+        title={"Select Value"}
+        dropdownValue={textDraft}
+        setDropdownValue={setTextDraft}
+        draftValue={freeTextAltDraft}
+        setDraftValue={setFreeTextAltDraft}
+        handleSave={handleSaveDropdownFreeText}
       />
 
       <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={handleSnackbarClose}>

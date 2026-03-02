@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/driver/sqlite"
@@ -14,25 +15,7 @@ import (
 	esession "github.com/labstack/echo-contrib/session"
 )
 
-func main() {
-	// read DB path from env or fall back to default
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "../db/drafty_new_gorm.db"
-	}
-
-	// open DB connection with gorm
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
-	if err != nil {
-		log.Fatal("failed to connect database:", err)
-	}
-
-	// create echo instance
-	e := echo.New()
-
-	// use session middleware
-	e.Use(esession.Middleware(sessions.NewCookieStore([]byte("temp_secret_key"))))
-
+func registerRoutes(api *echo.Group, db *gorm.DB) {
 	// create handlers with db
 	suggestionsHandler := handler.NewSuggestionsHandler(db)
 	aliasHandler := handler.NewAliasHandler(db)
@@ -74,9 +57,6 @@ func main() {
 	viewChangeHandler := handler.NewViewChangeHandler(db)
 	visitHandler := handler.NewVisitHandler(db)
 	sessionsHandler := handler.NewSessionsHandler(db)
-
-	// set up /api routes
-	api := e.Group("/api")
 
 	// Suggestions (at the top, with PUT)
 	api.GET("/suggestions/:id", suggestionsHandler.GetSuggestion)
@@ -156,7 +136,7 @@ func main() {
 	api.POST("/selectranges", selectRangeHandler.CreateSelectRange)
 
 	// SuggestionType
-	api.GET("/suggestiontypes/:id", suggestionTypeHandler.GetSuggestionType)
+	api.GET("/suggestiontypes/:name", suggestionTypeHandler.GetSuggestionType)
 	api.POST("/suggestiontypes", suggestionTypeHandler.CreateSuggestionType)
 
 	// CopyColumn
@@ -238,6 +218,46 @@ func main() {
 	// Sessions
 	api.GET("/sessions/:id", sessionsHandler.GetSessions)
 	api.POST("/sessions", sessionsHandler.CreateSessions)
+}
+
+func main() {
+	// create echo instance
+	e := echo.New()
+
+	// use session middleware
+	e.Use(esession.Middleware(sessions.NewCookieStore([]byte("temp_secret_key"))))
+
+	dbRoot := os.Getenv("DB_ROOT")
+	if dbRoot == "" {
+		dbRoot = "../db"
+	}
+
+	csprofsPath := os.Getenv("DB_PATH_CSPROFS")
+	if csprofsPath == "" {
+		csprofsPath = filepath.Join(dbRoot, "drafty_new_gorm.db")
+	}
+
+	studentsPath := os.Getenv("DB_PATH_STUDENTS")
+	if studentsPath == "" {
+		studentsPath = filepath.Join(dbRoot, "students_gorm.db")
+	}
+
+	dbCsprofs, err := gorm.Open(sqlite.Open(csprofsPath), &gorm.Config{})
+	if err != nil {
+		log.Fatal("failed to connect csprofs db:", err)
+	}
+
+	dbStudents, err := gorm.Open(sqlite.Open(studentsPath), &gorm.Config{})
+	if err != nil {
+		log.Fatal("failed to connect students db:", err)
+	}
+
+	// set up base /api routes
+	api := e.Group("/api")
+
+	// mount dataset-specific routes:
+	registerRoutes(api.Group("/csprofs"), dbCsprofs)
+	registerRoutes(api.Group("/students"), dbStudents)
 
 	// start server
 	log.Println("Server running on http://localhost:8081")

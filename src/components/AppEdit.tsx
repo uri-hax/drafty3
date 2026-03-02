@@ -7,18 +7,30 @@ import type { ColumnData } from '../interfaces/ColumnData';
 import useWindowWidth from '../hooks/useWindow';
 import ActionButtons from './ActionButtons';
 import DataGridWrapper from './DataGridWrapper';
+import type { ColumnConfig } from '../interfaces/ColumnData';
 
-const customWidths: Record<string, string> = {
-  When: "10%",
-  EditedBy: "10%",
-  Action: "10%",
-  WhoWasEdited: "20%",
-  Column: "10%",
-  ChangedFrom: "20%",
-  ChangedTo: "20%"
-};
+// const customWidths: Record<string, string> = {
+//   When: "10%",
+//   EditedBy: "10%",
+//   Action: "10%",
+//   WhoWasEdited: "20%",
+//   Column: "10%",
+//   ChangedFrom: "20%",
+//   ChangedTo: "20%"
+// };
 
 export default function App() {
+  const editFiles: Record<string, string> = {
+    csprofs: "edit-history.csv",
+    students: "students-edit-history.csv",
+  };
+
+  const base = import.meta.env.BASE_URL;
+  const dataset = window.location.pathname
+    .replace(base, "")
+    .split("/")
+    .filter(Boolean)[0];
+
   useEffect(() => {
     const portalDiv = document.getElementById('portal');
 
@@ -34,7 +46,7 @@ export default function App() {
   const [columns, setColumns] = useState<GridColumn[]>([]);
   const [data, setData] = useState<ColumnData[]>([]);
   const [filteredData, setFilteredData] = useState<ColumnData[]>([]);
-  const [columnSchema, setColumnSchema] = useState<Record<string, string>>({});
+  const [columnSchema, setColumnSchema] = useState<Record<string, ColumnConfig>>({});
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -42,8 +54,7 @@ export default function App() {
       try {
         const { gridColumns, parsedData, columnSchema } = await fetchCsvData(
           gridWidth, 
-          customWidths,
-          '/drafty3/edit-history.csv',
+          `${base}${editFiles[dataset]}`,
         ); 
 
         setColumns(gridColumns);
@@ -112,16 +123,23 @@ export default function App() {
   }, [columnFilters, columns]);
 
   const handleHomePage = () => {
-    window.location.href = "/drafty3/";
+    window.location.href = `${base}`;
   }
 
   const handleData = () => {
-    window.location.href = "/drafty3/csprofs";
+    window.location.href = `${base}${dataset}`;
   }
 
   const handleEditHistory = () => {
-    window.location.href = "/drafty3/edit-history";
+    window.location.href = `${base}${dataset}/history`;
   };
+
+  const datasetLabels: Record<string, string> = {
+    csprofs: "CS Professors",
+    students: "Students",
+  };
+
+  const datasetLabel = datasetLabels[dataset];
 
   return (
     <div className="App" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
@@ -129,6 +147,7 @@ export default function App() {
         handleHomePage={handleHomePage}
         handleData={handleData}
         handleEditHistory={handleEditHistory}
+        datasetLabel={datasetLabel}
       />
 
       <div className="grid-container" style={{ flexGrow: 1 }}>
