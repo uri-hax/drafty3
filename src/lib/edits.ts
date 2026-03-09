@@ -45,7 +45,7 @@ export function getColumnId(
   name: string,
   onSuccess?: (data: GetColumnIdResponse, res: Response) => void,
   onError?: (err: Response | Error) => void
-) {;
+) {
   getEditInformation<GetColumnIdResponse>(
     `${getAPI()}/suggestiontypes/${name}`,
     onSuccess,

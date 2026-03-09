@@ -1,5 +1,5 @@
 export function getAPI(): string {
-  if (typeof window === 'undefined') return '';
+  if (typeof window === "undefined") return "";
 
   const { hostname, pathname } = window.location;
 
@@ -9,15 +9,39 @@ export function getAPI(): string {
     .split("/")
     .filter(Boolean)[0];
 
-  if (hostname === "localhost") return dataset ? `/api/${dataset}` : "/api/csprofs"; // temp default
+  if (hostname === "localhost") {
+    return `/api/${dataset}`;
+  }
+
   const apiBase = (import.meta.env.PUBLIC_API_BASE || "").replace(/\/$/, "");
 
   if (
-    hostname === 'uri-hax.github.io' &&
+    hostname === "uri-hax.github.io" &&
     pathname.startsWith(import.meta.env.PUBLIC_BASE_PATH)
   ) {
     return `${apiBase}${dataset}`;
   }
 
   return `${apiBase}${dataset}`;
+}
+
+export function getUsersAPI(): string {
+  if (typeof window === "undefined") return "";
+
+  const { hostname, pathname } = window.location;
+
+  if (hostname === "localhost") {
+    return "/api/users";
+  }
+
+  const apiBase = (import.meta.env.PUBLIC_API_BASE || "").replace(/\/$/, "");
+
+  if (
+    hostname === "uri-hax.github.io" &&
+    pathname.startsWith(import.meta.env.PUBLIC_BASE_PATH)
+  ) {
+    return `${apiBase}/users`;
+  }
+
+  return `${apiBase}/users`;
 }

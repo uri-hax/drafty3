@@ -52,7 +52,9 @@ export default function App() {
   const [session, setSession] = useState<BackendSession | null>(null);
 
   useEffect(() => {
-    ensureSession().then(setSession).catch(console.error);
+    ensureSession()
+      .then((data) => setSession(data.session))
+      .catch(console.error);
   }, []);
 
   const gridWidth = useWindowWidth();
@@ -397,10 +399,6 @@ export default function App() {
   };
 
   const onCellEditorActivated = (cell: Item) => {
-    if (!session) {
-      return;
-    }
-
     const [col, row] = cell;
     const rowObj = filteredData[row];
     const rowId = Number(rowObj["idUniqueID"]);

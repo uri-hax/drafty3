@@ -5,18 +5,17 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gorilla/sessions"
 	"github.com/labstack/echo/v4"
+	esession "github.com/labstack/echo-contrib/session"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"drafty3/endpoints/handler"
-
-	"github.com/gorilla/sessions"
-	esession "github.com/labstack/echo-contrib/session"
 )
 
 func registerRoutes(api *echo.Group, db *gorm.DB) {
-	// create handlers with db
+	// create handlers with dataset db
 	suggestionsHandler := handler.NewSuggestionsHandler(db)
 	aliasHandler := handler.NewAliasHandler(db)
 	clickHandler := handler.NewClickHandler(db)
@@ -31,7 +30,6 @@ func registerRoutes(api *echo.Group, db *gorm.DB) {
 	databaitTweetHandler := handler.NewDatabaitTweetHandler(db)
 	editHandler := handler.NewEditHandler(db)
 	interactionTypeHandler := handler.NewInteractionTypeHandler(db)
-	profileHandler := handler.NewProfileHandler(db)
 	removeUserDataHandler := handler.NewRemoveUserDataHandler(db)
 	roleHandler := handler.NewRoleHandler(db)
 	searchTypeHandler := handler.NewSearchTypeHandler(db)
@@ -56,9 +54,8 @@ func registerRoutes(api *echo.Group, db *gorm.DB) {
 	searchGoogleHandler := handler.NewSearchGoogleHandler(db)
 	viewChangeHandler := handler.NewViewChangeHandler(db)
 	visitHandler := handler.NewVisitHandler(db)
-	sessionsHandler := handler.NewSessionsHandler(db)
 
-	// Suggestions (at the top, with PUT)
+	// Suggestions
 	api.GET("/suggestions/:id", suggestionsHandler.GetSuggestion)
 	api.POST("/suggestions", suggestionsHandler.CreateSuggestion)
 	api.PUT("/suggestions/:id", suggestionsHandler.UpdateSuggestion)
@@ -114,10 +111,6 @@ func registerRoutes(api *echo.Group, db *gorm.DB) {
 	// InteractionType
 	api.GET("/interactiontypes/:id", interactionTypeHandler.GetInteractionType)
 	api.POST("/interactiontypes", interactionTypeHandler.CreateInteractionType)
-
-	// Profile
-	api.GET("/profiles/:id", profileHandler.GetProfile)
-	api.POST("/profiles", profileHandler.CreateProfile)
 
 	// RemoveUserData
 	api.GET("/removeuserdata/:id", removeUserDataHandler.GetRemoveUserData)
@@ -214,17 +207,22 @@ func registerRoutes(api *echo.Group, db *gorm.DB) {
 	// Visit
 	api.GET("/visits/:id", visitHandler.GetVisit)
 	api.POST("/visits", visitHandler.CreateVisit)
+}
 
-	// Sessions
+func registerUserRoutes(api *echo.Group, usersDB *gorm.DB) {
+	profileHandler := handler.NewProfileHandler(usersDB)
+	sessionsHandler := handler.NewSessionsHandler(usersDB)
+
+	api.GET("/profiles/:id", profileHandler.GetProfile)
+	api.POST("/profiles", profileHandler.CreateProfile)
+
 	api.GET("/sessions/:id", sessionsHandler.GetSessions)
 	api.POST("/sessions", sessionsHandler.CreateSessions)
 }
 
 func main() {
-	// create echo instance
 	e := echo.New()
 
-	// use session middleware
 	e.Use(esession.Middleware(sessions.NewCookieStore([]byte("temp_secret_key"))))
 
 	dbRoot := os.Getenv("DB_ROOT")
@@ -242,6 +240,11 @@ func main() {
 		studentsPath = filepath.Join(dbRoot, "students_gorm.db")
 	}
 
+	usersPath := os.Getenv("DB_PATH_USERS")
+	if usersPath == "" {
+		usersPath = filepath.Join(dbRoot, "users_gorm.db")
+	}
+
 	dbCsprofs, err := gorm.Open(sqlite.Open(csprofsPath), &gorm.Config{})
 	if err != nil {
 		log.Fatal("failed to connect csprofs db:", err)
@@ -252,14 +255,17 @@ func main() {
 		log.Fatal("failed to connect students db:", err)
 	}
 
-	// set up base /api routes
+	dbUsers, err := gorm.Open(sqlite.Open(usersPath), &gorm.Config{})
+	if err != nil {
+		log.Fatal("failed to connect users db:", err)
+	}
+
 	api := e.Group("/api")
 
-	// mount dataset-specific routes:
 	registerRoutes(api.Group("/csprofs"), dbCsprofs)
 	registerRoutes(api.Group("/students"), dbStudents)
+	registerUserRoutes(api.Group("/users"), dbUsers)
 
-	// start server
 	log.Println("Server running on http://localhost:8081")
 	e.Logger.Fatal(e.Start(":8081"))
 }

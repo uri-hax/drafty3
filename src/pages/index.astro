@@ -16,8 +16,8 @@ import Layout from '../layouts/Layout.astro';
 </Layout>
 
 <script>
-    import { getAPI } from "../lib/api";
-    const apiUrl = getAPI();
+    import { getUsersAPI } from "../lib/api";
+    const apiUrl = getUsersAPI();
     fetch(`${apiUrl}/sessions`, {
 		method: "POST",
 		credentials: "include"
