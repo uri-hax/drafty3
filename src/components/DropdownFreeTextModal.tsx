@@ -17,6 +17,7 @@ interface DropdownFreeTextModalProps {
   optionsList: string[];
 
   title?: string;
+  column?: string;
 
   dropdownValue: string;
   setDropdownValue: React.Dispatch<React.SetStateAction<string>>;
@@ -37,6 +38,7 @@ const DropdownFreeTextModal: React.FC<DropdownFreeTextModalProps> = ({
   draftValue,
   setDraftValue,
   handleSave,
+  column,
 }) => (
   <Modal open={isOverlayVisible} onClose={() => setIsOverlayVisible(false)}>
     <Box
@@ -63,7 +65,7 @@ const DropdownFreeTextModal: React.FC<DropdownFreeTextModalProps> = ({
           fontFamily: monoFont,
         }}
       >
-        {title}
+        {column}: {title}
       </Typography>
 
       <Autocomplete

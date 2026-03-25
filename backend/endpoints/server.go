@@ -58,7 +58,6 @@ func registerRoutes(api *echo.Group, db *gorm.DB) {
 	// Suggestions
 	api.GET("/suggestions/:id", suggestionsHandler.GetSuggestion)
 	api.POST("/suggestions", suggestionsHandler.CreateSuggestion)
-	api.PUT("/suggestions/:id", suggestionsHandler.UpdateSuggestion)
 
 	// Alias
 	api.GET("/alias/:id", aliasHandler.GetAlias)

@@ -32,7 +32,8 @@ export function recordInteraction(
 
 // cell click
 export function recordCellClick(
-  idSuggestion: number,
+  idSuggestionType: number,
+  idUniqueID: number,
   rowValues: ColumnData
 ) {
   const rowValuesString = JSON.stringify(rowValues);
@@ -41,23 +42,30 @@ export function recordCellClick(
     `${getAPI()}/clicks`,
     {
       IDInteractionType: 1, // placeholder
-      IDSuggestion:      idSuggestion,
-      RowValues:         rowValuesString,
+      IDSuggestionType: idSuggestionType,
+      IDUniqueID:       idUniqueID,
+      RowValues:        rowValuesString,
     }
   );
 }
 
 // cell edit
 export function recordCellEdit(
+  idSuggestionType: number,
+  idUniqueID: number,
+  suggestion: string,
 ) {
   recordInteraction(
     `${getAPI()}/edits`,
     {
       IDInteractionType: 2, // placeholder
-      IDEntryType:       1, // placeholder
-      // Mode and IsCorrect will use defaults for now
-      Mode: "normal",
-      IsCorrect: 2,
+      IDEntryType: 1, // placeholder
+      Mode: "normal", // default
+      IsCorrect: 2, // default
+      IDSuggestionType: idSuggestionType,
+      IDUniqueID: idUniqueID,
+      Suggestion: suggestion,
+      Active: 1, // default
     }
   );
 }
@@ -89,34 +97,38 @@ export function recordColumnSearch(
 
 // row add
 export function recordRowAdd(
-  idSuggestion: number
+  idUniqueID: number,
+  cells: {
+    IDSuggestionType: number;
+    Suggestion: string;
+    Active: number; 
+    Confidence: number; 
+  }[]
 ) {
-  recordInteraction(
-    `${getAPI()}/editnewrows`,
-    {
-      IDInteractionType: 3, // placeholder
-      IDEntryType: 2,       // placeholder
-      IDSuggestion: idSuggestion,
-      // Mode and IsCorrect will use defaults for now
-      Mode: "normal",
-      IsCorrect: 2,
-    }
-  );
+  recordInteraction(`${getAPI()}/editnewrows`, {
+    IDInteractionType: 3, // placeholder
+    IDEntryType: 2, // placeholder
+    IDUniqueID: idUniqueID,
+    Mode: "normal", // default
+    IsCorrect: 2, // default
+    Cells: cells,
+  });
 }
 
 // row delete
 export function recordRowDelete(
+  idUniqueID: number,
   comment: string
 ) {
   recordInteraction(
     `${getAPI()}/editdelrows`,
     {
       IDInteractionType: 4, // placeholder
-      IDEntryType: 3,       // placeholder
+      IDEntryType: 3, // placeholder
+      IDUniqueID: idUniqueID,
       Comment: comment,
-      // Mode and IsCorrect will use defaults for now
-      Mode: "normal",
-      IsCorrect: 2,
+      Mode: "normal", // default
+      IsCorrect: 2, // default
     }
   );
 }

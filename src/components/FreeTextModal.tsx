@@ -10,11 +10,12 @@ import { Modal, Button, TextField, Box, Typography } from "@mui/material";
 
 const monoFont = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
-interface TextInputModalProps {
+interface FreeTextModalProps {
   isOverlayVisible: boolean;
   setIsOverlayVisible: React.Dispatch<React.SetStateAction<boolean>>;
 
   title?: string;
+  column?: string;
 
   value: string;
   setValue: React.Dispatch<React.SetStateAction<string>>;
@@ -22,13 +23,14 @@ interface TextInputModalProps {
   handleSave: () => void;
 }
 
-const TextInputModal: React.FC<TextInputModalProps> = ({
+const FreeTextModal: React.FC<FreeTextModalProps> = ({
   isOverlayVisible,
   setIsOverlayVisible,
   title = "Edit Value",
   value,
   setValue,
   handleSave,
+  column,
 }) => (
   <Modal open={isOverlayVisible} onClose={() => setIsOverlayVisible(false)}>
     <Box
@@ -53,7 +55,7 @@ const TextInputModal: React.FC<TextInputModalProps> = ({
           fontFamily: monoFont,
         }}
       >
-        {title}
+        {column}: {title}
       </Typography>
 
       <TextField
@@ -87,4 +89,4 @@ const TextInputModal: React.FC<TextInputModalProps> = ({
   </Modal>
 );
 
-export default TextInputModal;
+export default FreeTextModal;

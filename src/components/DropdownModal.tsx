@@ -17,6 +17,7 @@ interface DropdownModalProps {
   optionsList: string[];
 
   title?: string;
+  column?: string;
 
   value: string;
   setValue: React.Dispatch<React.SetStateAction<string>>;
@@ -32,6 +33,7 @@ const DropdownModal: React.FC<DropdownModalProps> = ({
   value,
   setValue,
   handleSave,
+  column,
 }) => (
   <Modal open={isOverlayVisible} onClose={() => setIsOverlayVisible(false)}>
     <Box
@@ -58,7 +60,7 @@ const DropdownModal: React.FC<DropdownModalProps> = ({
           fontFamily: monoFont,
         }}
       >
-        {title}
+        {column}: {title}
       </Typography>
 
       <Autocomplete

@@ -39,6 +39,8 @@ interface MultiSelectModalProps {
   title?: string;
 
   handleSaveOptions: () => void;
+
+  column?: string;
 }
 
 const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
@@ -50,6 +52,7 @@ const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
   handleSaveOptions,
   multiple = true,
   title = "Select Value(s)",
+  column,
 }) => (
   <Modal open={isOverlayVisible} onClose={() => setIsOverlayVisible(false)}>
     <Box
@@ -76,7 +79,7 @@ const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
           fontFamily: monoFont,
         }}
       >
-        {title}
+        {column}: {title}
       </Typography>
 
       <Autocomplete

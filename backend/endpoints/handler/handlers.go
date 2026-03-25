@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -10,8 +11,8 @@ import (
 	"drafty3/go_migration/data_model"
 	"drafty3/go_migration/user_model"
 
-	esession "github.com/labstack/echo-contrib/session"
 	"github.com/gorilla/sessions"
+	esession "github.com/labstack/echo-contrib/session"
 )
 
 // SUGGESTIONS HANDLER
@@ -65,40 +66,6 @@ func (h *SuggestionsHandler) CreateSuggestion(c echo.Context) error {
 
 	// return created row
 	return c.JSON(http.StatusCreated, suggestion)
-}
-
-// UpdateSuggestion handles PUT /api/suggestions/:id
-func (h *SuggestionsHandler) UpdateSuggestion(c echo.Context) error {
-	// get existing row from id parameter in URL
-	id := c.Param("id")
-
-	// try to find the row and error if can't
-	var existing data_model.Suggestions
-	if err := h.DB.First(&existing, "idSuggestion = ?", id).Error; err != nil {
-		return c.JSON(http.StatusNotFound, echo.Map{
-			"error": "Suggestion not found",
-			"id":    id,
-		})
-	}
-
-	// bind request JSON to existing which mutates in place
-	if err := c.Bind(&existing); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":  "invalid request body",
-			"detail": err.Error(),
-		})
-	}
-
-	// save full struct back to DB
-	if err := h.DB.Save(&existing).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to update suggestion",
-			"detail": err.Error(),
-		})
-	}
-
-	// return updated row
-	return c.JSON(http.StatusOK, existing)
 }
 
 // ALIAS HANDLER
@@ -187,7 +154,8 @@ func (h *ClickHandler) GetClick(c echo.Context) error {
 // struct of what we expect from front end with info to make rows in Interaction and Click
 type createClickPayload struct {
 	IDInteractionType int64   `json:"IDInteractionType"`
-	IDSuggestion      int64   `json:"IDSuggestion"`
+	IDSuggestionType  int64   `json:"IDSuggestionType"`
+	IDUniqueID        int64   `json:"IDUniqueID"`
 	RowValues         *string `json:"RowValues"`
 }
 
@@ -211,26 +179,63 @@ func (h *ClickHandler) CreateClick(c echo.Context) error {
 		})
 	}
 
-	// create Interaction using IDSession from cookie
-	interaction := data_model.Interaction{
-		IDSession:         sessionID,
-		IDInteractionType: payload.IDInteractionType,
-		// Timestamp is default
-	}
-	if err := h.DB.Create(&interaction).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create interaction",
-			"detail": err.Error(),
-		})
-	}
+	// set up data models
+	var interaction data_model.Interaction
+	var click data_model.Click
 
-	// create Click linked to this Interaction
-	click := data_model.Click{
-		IDInteraction: interaction.IDInteraction,
-		IDSuggestion:  payload.IDSuggestion,
-		RowValues:     payload.RowValues,
-	}
-	if err := h.DB.Create(&click).Error; err != nil {
+	err = h.DB.Transaction(func(tx *gorm.DB) error {
+		// find matching suggestions
+		var suggestions []data_model.Suggestions
+		if err := tx.
+			Where("idSuggestionType = ? AND idUniqueID = ?", payload.IDSuggestionType, payload.IDUniqueID).
+			Find(&suggestions).Error; err != nil {
+			return err
+		}
+
+		// find the active suggestion
+		var activeSuggestionID int64
+		for _, s := range suggestions {
+			if s.Active != nil && *s.Active == 1 {
+				activeSuggestionID = s.IDSuggestion
+				break
+			}
+		}
+
+		// make sure we got an active suggestion
+		if activeSuggestionID == 0 {
+			return echo.NewHTTPError(http.StatusNotFound, "no active suggestion found")
+		}
+
+		// create Interaction using IDSession from cookie
+		interaction = data_model.Interaction{
+			IDSession:         sessionID,
+			IDInteractionType: payload.IDInteractionType,
+		}
+		if err := tx.Create(&interaction).Error; err != nil {
+			return err
+		}
+
+		// create Click linked to this Interaction
+		click = data_model.Click{
+			IDInteraction: interaction.IDInteraction,
+			IDSuggestion:  activeSuggestionID,
+			RowValues:     payload.RowValues,
+		}
+		if err := tx.Create(&click).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	// error handling for the transaction
+	if err != nil {
+		if httpErr, ok := err.(*echo.HTTPError); ok {
+			return c.JSON(httpErr.Code, echo.Map{
+				"error": httpErr.Message,
+			})
+		}
+
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error":  "failed to create click",
 			"detail": err.Error(),
@@ -749,15 +754,19 @@ func (h *EditHandler) GetEdit(c echo.Context) error {
 	return c.JSON(http.StatusOK, edit)
 }
 
-// struct of what we expect from front end with info to make rows in Interaction and Click
+// struct of what we expect from front end with info to make rows in Interaction, Edit, Suggestions, and EditSuggestion
 type createEditPayload struct {
-	IDInteractionType int64   `json:"IDInteractionType"`
-	IDEntryType       int64   `json:"IDEntryType"`
-	Mode              string  `json:"Mode"`           
-	IsCorrect         int64  `json:"IsCorrect"`        
+	IDInteractionType int64  `json:"IDInteractionType"`
+	IDEntryType       int64  `json:"IDEntryType"`
+	Mode              string `json:"Mode"`
+	IsCorrect         int64  `json:"IsCorrect"`
+
+	IDSuggestionType int64  `json:"IDSuggestionType"`
+	IDUniqueID       int64  `json:"IDUniqueID"`
+	Suggestion       string `json:"Suggestion"`
+	Active           int64  `json:"Active"`
 }
 
-// CreateEdit handles POST /api/edits
 func (h *EditHandler) CreateEdit(c echo.Context) error {
 	// read the cookie based session
 	sessionID, err := getCookieSessionID(c)
@@ -768,7 +777,16 @@ func (h *EditHandler) CreateEdit(c echo.Context) error {
 		})
 	}
 
-	// bind request JSON filled with info for Interaction and Edit
+	// read the cookie based profile
+	profileID, err := getCookieProfileID(c)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, echo.Map{
+			"error":  "failed to get active profile",
+			"detail": err.Error(),
+		})
+	}
+
+	// bind request JSON filled with info for Interaction, Edit, Suggestions, and EditSuggestion
 	var payload createEditPayload
 	if err := c.Bind(&payload); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
@@ -777,35 +795,132 @@ func (h *EditHandler) CreateEdit(c echo.Context) error {
 		})
 	}
 
-	// create Interaction using IDSession from cookie
-	interaction := data_model.Interaction{
-		IDSession:         sessionID,
-		IDInteractionType: payload.IDInteractionType,
-		// Timestamp is default
-	}
-	if err := h.DB.Create(&interaction).Error; err != nil {
+	// set up data models
+	var interaction data_model.Interaction
+	var edit data_model.Edit
+	var suggestion data_model.Suggestions
+	var editSuggestion data_model.EditSuggestion
+
+	err = h.DB.Transaction(func(tx *gorm.DB) error {
+		// find matching suggestions for a cell
+		var matchingSuggestions []data_model.Suggestions
+		if err := tx.
+			Where("idSuggestionType = ? AND idUniqueID = ?", payload.IDSuggestionType, payload.IDUniqueID).
+			Find(&matchingSuggestions).Error; err != nil {
+			return err
+		}
+
+		var isPrevSuggest int64 = 0
+		var isNew int64 = 1
+
+		// see if the suggestion in the payload matches any of the existing suggestions for that cell and change fields accordingly
+		for _, s := range matchingSuggestions {
+			if s.Suggestion == payload.Suggestion {
+				isPrevSuggest = 1
+				isNew = 0
+				break
+			}
+		}
+
+		var highestSuggestion data_model.Suggestions
+		var nextConfidence int64 = 1
+
+		// find the highest confidence suggestion for that cell
+		err := tx.
+			Where("idSuggestionType = ? AND idUniqueID = ?", payload.IDSuggestionType, payload.IDUniqueID).
+			Order("confidence DESC").
+			First(&highestSuggestion).Error
+
+		// make sure we got a suggestion and handle error if not
+		if err == nil {
+			// set next confidence to be 1 higher than the highest confidence so far for that cell
+			if highestSuggestion.Confidence != nil {
+				nextConfidence = *highestSuggestion.Confidence + 1
+			}
+
+			// if the new suggestion is active then set the currently highest confidence suggestion to be inactive
+			zero := int64(0)
+			if err := tx.Model(&data_model.Suggestions{}).
+				Where("idSuggestion = ?", highestSuggestion.IDSuggestion).
+				Update("active", zero).Error; err != nil {
+				return err
+			}
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		active := payload.Active
+
+		// make sure chosen aligns with active
+		var isChosen int64 = 0
+		if active == 1 {
+			isChosen = 1
+		}
+
+		confidence := nextConfidence
+
+		// create Interaction using IDSession from cookie
+		interaction = data_model.Interaction{
+			IDSession:         sessionID,
+			IDInteractionType: payload.IDInteractionType,
+		}
+		if err := tx.Create(&interaction).Error; err != nil {
+			return err
+		}
+
+		// create Edit linked to this Interaction
+		edit = data_model.Edit{
+			IDInteraction: interaction.IDInteraction,
+			IDEntryType:   payload.IDEntryType,
+			Mode:          payload.Mode,
+			IsCorrect:     payload.IsCorrect,
+		}
+		if err := tx.Create(&edit).Error; err != nil {
+			return err
+		}
+
+		// create Suggestion linked to this Edit and the profile from the cookie
+		suggestion = data_model.Suggestions{
+			IDSuggestionType: payload.IDSuggestionType,
+			IDUniqueID:       payload.IDUniqueID,
+			IDProfile:        profileID,
+			Suggestion:       payload.Suggestion,
+			Active:           &active,
+			Confidence:       &confidence,
+		}
+		if err := tx.Create(&suggestion).Error; err != nil {
+			return err
+		}
+
+		// create EditSuggestion linking the Edit and Suggestion
+		editSuggestion = data_model.EditSuggestion{
+			IDEdit:        edit.IDEdit,
+			IDSuggestion:  suggestion.IDSuggestion,
+			IsPrevSuggest: isPrevSuggest,
+			IsNew:         isNew,
+			IsChosen:      isChosen,
+		}
+		if err := tx.Create(&editSuggestion).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	// error handling for the transaction
+	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create interaction",
+			"error":  "failed to create edit flow",
 			"detail": err.Error(),
 		})
 	}
 
-	// create Edit linked to this Interaction
-	edit := data_model.Edit{
-		IDInteraction: interaction.IDInteraction,
-		IDEntryType:   payload.IDEntryType,
-		Mode:          payload.Mode,
-		IsCorrect:     payload.IsCorrect,
-	}
-	if err := h.DB.Create(&edit).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create edit",
-			"detail": err.Error(),
-		})
-	}
-
-	// return new row in edit
-	return c.JSON(http.StatusCreated, edit)
+	// return new rows in Edit, Suggestions, and EditSuggestion
+	return c.JSON(http.StatusCreated, echo.Map{
+		"edit":            edit,
+		"suggestion":      suggestion,
+		"edit_suggestion": editSuggestion,
+	})
 }
 
 // INTERACTIONTYPE HANDLER
@@ -1880,11 +1995,12 @@ func (h *EditDelRowHandler) GetEditDelRow(c echo.Context) error {
 
 // struct of what we expect from front end with info to make rows in Interaction and Edit and EditDelRow
 type createEditDelRowPayload struct {
-	IDInteractionType int64   `json:"IDInteractionType"`
-	IDEntryType       int64   `json:"IDEntryType"`
-	Mode              string  `json:"Mode"`
-	IsCorrect         int64   `json:"IsCorrect"`
-	Comment           string  `json:"Comment"`
+	IDInteractionType int64  `json:"IDInteractionType"`
+	IDEntryType       int64  `json:"IDEntryType"`
+	Mode              string `json:"Mode"`
+	IsCorrect         int64  `json:"IsCorrect"`
+	IDUniqueID        int64  `json:"IDUniqueID"`
+	Comment           string `json:"Comment"`
 }
 
 // CreateEditDelRow handles POST /api/editdelrows
@@ -1907,60 +2023,80 @@ func (h *EditDelRowHandler) CreateEditDelRow(c echo.Context) error {
 		})
 	}
 
-	// create Interaction using IDSession from cookie
-	interaction := data_model.Interaction{
-		IDSession:         sessionID,
-		IDInteractionType: payload.IDInteractionType,
-		// Timestamp is default
-	}
-	if err := h.DB.Create(&interaction).Error; err != nil {
+	// set up data models
+	var interaction data_model.Interaction
+	var edit data_model.Edit
+	var edr data_model.EditDelRow
+
+	err = h.DB.Transaction(func(tx *gorm.DB) error {
+		// create Interaction using IDSession from cookie
+		interaction = data_model.Interaction{
+			IDSession:         sessionID,
+			IDInteractionType: payload.IDInteractionType,
+		}
+		if err := tx.Create(&interaction).Error; err != nil {
+			return err
+		}
+
+		// create Edit linked to this Interaction
+		edit = data_model.Edit{
+			IDInteraction: interaction.IDInteraction,
+			IDEntryType:   payload.IDEntryType,
+			Mode:          payload.Mode,
+			IsCorrect:     payload.IsCorrect,
+		}
+		if err := tx.Create(&edit).Error; err != nil {
+			return err
+		}
+
+		// find suggestion rows for this unique id
+		var suggestions []data_model.Suggestions
+		if err := tx.
+			Where("idUniqueID = ?", payload.IDUniqueID).
+			Find(&suggestions).Error; err != nil {
+			return err
+		}
+
+		// find the active one and set it to 0
+		for _, s := range suggestions {
+			if s.Active != nil && *s.Active == 1 {
+				zero := int64(0)
+				if err := tx.Model(&data_model.Suggestions{}).
+					Where("idSuggestion = ?", s.IDSuggestion).
+					Update("active", &zero).Error; err != nil {
+					return err
+				}
+				break
+			}
+		}
+
+		// create EditDelRow linked to Edit and UniqueId
+		edr = data_model.EditDelRow{
+			IDEdit:     edit.IDEdit,
+			IDUniqueID: payload.IDUniqueID,
+			Comment:    payload.Comment,
+		}
+		if err := tx.Create(&edr).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	// error handling for the transaction
+	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create interaction",
+			"error":  "failed to create edit del row flow",
 			"detail": err.Error(),
 		})
 	}
 
-	// create Edit linked to this Interaction
-	edit := data_model.Edit{
-		IDInteraction: interaction.IDInteraction,
-		IDEntryType:   payload.IDEntryType,
-		Mode:          payload.Mode,
-		IsCorrect:     payload.IsCorrect,
-	}
-	if err := h.DB.Create(&edit).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create edit",
-			"detail": err.Error(),
-		})
-	}
-
-	// create a UniqueId row
-    newUnique := data_model.UniqueId{
-        Active: 1, 
-        Notes:  nil,
-    }
-    if err := h.DB.Create(&newUnique).Error; err != nil {
-        return c.JSON(http.StatusInternalServerError, echo.Map{
-            "error":  "failed to create unique id",
-            "detail": err.Error(),
-        })
-    }
-
-    // create EditDelRow linked to Edit and UniqueId
-    edr := data_model.EditDelRow{
-        IDEdit:     edit.IDEdit,
-        IDUniqueID: newUnique.IDUniqueID,
-        Comment:    payload.Comment,
-    }
-	if err := h.DB.Create(&edr).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create edit del row",
-			"detail": err.Error(),
-		})
-	}
-
-	// return new row in edit del row
-	return c.JSON(http.StatusCreated, edr)
+	// return created rows
+	return c.JSON(http.StatusCreated, echo.Map{
+		"interaction": interaction,
+		"edit":        edit,
+		"editdelrow":  edr,
+	})
 }
 
 // HELPUS HANDLER
@@ -2099,13 +2235,21 @@ func (h *EditNewRowHandler) GetEditNewRow(c echo.Context) error {
 	return c.JSON(http.StatusOK, enr)
 }
 
-// struct of what we expect from front end with info to make rows in Interaction and Edit and EditNewRow
+// struct of what we expect from front end with info to make rows in Interaction, Edit, many Suggestions, and EditNewRow
+type createEditNewRowCellPayload struct {
+	IDSuggestionType int64  `json:"IDSuggestionType"`
+	Suggestion       string `json:"Suggestion"`
+	Active           int64  `json:"Active"`
+	Confidence       int64  `json:"Confidence"`
+}
+
 type createEditNewRowPayload struct {
-	IDInteractionType int64   `json:"IDInteractionType"`
-	IDEntryType       int64   `json:"IDEntryType"`   
-	IDSuggestion      int64   `json:"IDSuggestion"`     
-	Mode              string  `json:"Mode"`       
-	IsCorrect         int64   `json:"IsCorrect"`         
+	IDInteractionType int64                         `json:"IDInteractionType"`
+	IDEntryType       int64                         `json:"IDEntryType"`
+	IDUniqueID        int64                         `json:"IDUniqueID"`
+	Mode              string                        `json:"Mode"`
+	IsCorrect         int64                         `json:"IsCorrect"`
+	Cells             []createEditNewRowCellPayload `json:"Cells"`
 }
 
 // CreateEditNewRow handles POST /api/editnewrows
@@ -2119,7 +2263,16 @@ func (h *EditNewRowHandler) CreateEditNewRow(c echo.Context) error {
 		})
 	}
 
-	// bind request JSON filled with info for Interaction and Edit and EditNewRow
+	// read the cookie based profile
+	profileID, err := getCookieProfileID(c)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, echo.Map{
+			"error":  "failed to get active profile",
+			"detail": err.Error(),
+		})
+	}
+
+	// bind request JSON filled with info for Interaction, Edit, Suggestions, and EditNewRow
 	var payload createEditNewRowPayload
 	if err := c.Bind(&payload); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
@@ -2128,48 +2281,88 @@ func (h *EditNewRowHandler) CreateEditNewRow(c echo.Context) error {
 		})
 	}
 
-	// create Interaction using IDSession from cookie
-	interaction := data_model.Interaction{
-		IDSession:         sessionID,
-		IDInteractionType: payload.IDInteractionType,
-		// Timestamp is default
+	// validate that at least one cell is provided
+	if len(payload.Cells) == 0 {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error": "at least one cell is required",
+		})
 	}
-	if err := h.DB.Create(&interaction).Error; err != nil {
+
+	// set up data models
+	var interaction data_model.Interaction
+	var edit data_model.Edit
+	var enr data_model.EditNewRow
+	createdSuggestions := make([]data_model.Suggestions, 0, len(payload.Cells))
+
+	err = h.DB.Transaction(func(tx *gorm.DB) error {
+		// create Interaction using IDSession from cookie
+		interaction = data_model.Interaction{
+			IDSession:         sessionID,
+			IDInteractionType: payload.IDInteractionType,
+		}
+		if err := tx.Create(&interaction).Error; err != nil {
+			return err
+		}
+
+		// create Edit linked to this Interaction
+		edit = data_model.Edit{
+			IDInteraction: interaction.IDInteraction,
+			IDEntryType:   payload.IDEntryType,
+			Mode:          payload.Mode,
+			IsCorrect:     payload.IsCorrect,
+		}
+		if err := tx.Create(&edit).Error; err != nil {
+			return err
+		}
+
+		// create one Suggestion per cell
+		for _, cell := range payload.Cells {
+			active := cell.Active
+			confidence := cell.Confidence
+
+			suggestion := data_model.Suggestions{
+				IDSuggestionType: cell.IDSuggestionType,
+				IDUniqueID:       payload.IDUniqueID,
+				IDProfile:        profileID,
+				Suggestion:       cell.Suggestion,
+				Active:           &active,
+				Confidence:       &confidence,
+			}
+			if err := tx.Create(&suggestion).Error; err != nil {
+				return err
+			}
+
+			createdSuggestions = append(createdSuggestions, suggestion)
+		}
+
+		// create EditNewRow linked to this Edit and the first new Suggestion
+		enr = data_model.EditNewRow{
+			IDEdit:       edit.IDEdit,
+			IDSuggestion: createdSuggestions[0].IDSuggestion,
+			IsCorrect:    payload.IsCorrect,
+		}
+		if err := tx.Create(&enr).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	// error handling for the transaction
+	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create interaction",
+			"error":  "failed to create edit new row flow",
 			"detail": err.Error(),
 		})
 	}
 
-	// create Edit linked to this Interaction
-	edit := data_model.Edit{
-		IDInteraction: interaction.IDInteraction,
-		IDEntryType:   payload.IDEntryType,
-		Mode:          payload.Mode,
-		IsCorrect:     payload.IsCorrect,
-	}
-	if err := h.DB.Create(&edit).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create edit",
-			"detail": err.Error(),
-		})
-	}
-
-	// create EditNewRow linked to this Edit
-	enr := data_model.EditNewRow{
-		IDEdit:       edit.IDEdit,
-		IDSuggestion: payload.IDSuggestion,
-		IsCorrect:    payload.IsCorrect,
-	}
-	if err := h.DB.Create(&enr).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create edit new row",
-			"detail": err.Error(),
-		})
-	}
-
-	// return new row in edit new row
-	return c.JSON(http.StatusCreated, enr)
+	// return created rows
+	return c.JSON(http.StatusCreated, echo.Map{
+		"interaction": interaction,
+		"edit":        edit,
+		"suggestions": createdSuggestions,
+		"editnewrow":  enr,
+	})
 }
 
 // PASTE HANDLER
@@ -2541,4 +2734,18 @@ func getCookieSessionID(c echo.Context) (int64, error) {
 	}
 
 	return sessionID, nil
+}
+
+func getCookieProfileID(c echo.Context) (int64, error) {
+	sess, err := esession.Get("session", c)
+	if err != nil {
+		return 0, err
+	}
+
+	profileID, ok := getInt64(sess.Values["profile_id"])
+	if !ok || profileID == 0 {
+		return 0, echo.NewHTTPError(http.StatusUnauthorized, "no active profile cookie")
+	}
+
+	return profileID, nil
 }

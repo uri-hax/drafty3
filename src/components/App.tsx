@@ -37,6 +37,7 @@ import { ensureSession, type BackendSession } from "../lib/sessions";
 import { recordCellClick, recordCellEdit, recordColumnSearch, recordRowAdd, recordRowDelete } from "../lib/interactions"
 import type { ColumnConfig } from '../interfaces/ColumnData';
 import { getColumnId, getSuggestionTypeValues } from "../lib/edits";
+import FreeTextModal from './FreeTextModal';
 
 export default function App() {
   useEffect(() => {
@@ -82,7 +83,8 @@ export default function App() {
   const [sortColKey, setSortColKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
+  const [alertSnackbarOpen, setAlertSnackbarOpen] = useState<boolean>(false);
+  const [contributionSnackbarOpen, setContributionSnackbarOpen] = useState<boolean>(false);
   // const originBase = new URL(import.meta.env.BASE_URL || '/', window.location.origin);
   // const url = (p: string) => new URL(p.replace(/^\//, ''), originBase).href;
 
@@ -400,18 +402,18 @@ export default function App() {
 
   const onCellEditorActivated = (cell: Item) => {
     const [col, row] = cell;
+    const colKey = columns[col].id as string;
+
     const rowObj = filteredData[row];
-    const rowId = Number(rowObj["idUniqueID"]);
-    // id is now row index * num columns + col index
-    const cellId = rowId * columns.length + col;
-    recordCellClick(cellId, rowObj);
+    // const rowId = Number(rowObj["idUniqueID"]);
+    // const columnId = suggestionTypeIds[colKey];
+    // recordCellClick(columnId, rowId, rowObj);
 
     setIsMultiOverlayVisible(false);
     setIsTextOverlayVisible(false);
     setIsDropdownOverlayVisible(false);
     setIsDropdownFreeTextOverlayVisible(false);
 
-    const colKey = columns[col].id as string;
     setActiveOptionsList(getOptionsForCol(colKey));
     const config = columnSchema[colKey];
     const colType = config?.type ?? "string";
@@ -473,7 +475,14 @@ export default function App() {
       setIsMultiOverlayVisible(false);
       setEditingCell(null);
 
-      recordCellEdit();
+      const rowObj = filteredData[row];
+      const rowId = Number(rowObj["idUniqueID"]);
+      const columnId = suggestionTypeIds[colKey];
+      const suggestion = JSON.stringify(selectedMultiOptions);
+
+      recordCellEdit(columnId, rowId, suggestion);
+
+      setContributionSnackbarOpen(true);
     }
   };
 
@@ -488,7 +497,13 @@ export default function App() {
       setIsTextOverlayVisible(false);
       setEditingCell(null);
 
-      recordCellEdit();
+      const rowObj = filteredData[row];
+      const rowId = Number(rowObj["idUniqueID"]);
+      const columnId = suggestionTypeIds[colKey];
+
+      recordCellEdit(columnId, rowId, textDraft);
+
+      setContributionSnackbarOpen(true);
     }
   };
 
@@ -503,7 +518,13 @@ export default function App() {
       setIsDropdownOverlayVisible(false);
       setEditingCell(null);
 
-      recordCellEdit();
+      const rowObj = filteredData[row];
+      const rowId = Number(rowObj["idUniqueID"]);
+      const columnId = suggestionTypeIds[colKey];
+
+      recordCellEdit(columnId, rowId, textDraft);
+
+      setContributionSnackbarOpen(true);
     }
   };
 
@@ -522,7 +543,13 @@ export default function App() {
       setIsDropdownFreeTextOverlayVisible(false);
       setEditingCell(null);
 
-      recordCellEdit();
+      const rowObj = filteredData[row];
+      const rowId = Number(rowObj["idUniqueID"]);
+      const columnId = suggestionTypeIds[colKey];
+
+      recordCellEdit(columnId, rowId, finalValue);
+
+      setContributionSnackbarOpen(true);
     }
   };
 
@@ -533,21 +560,32 @@ export default function App() {
     const updatedData = [...data];
     const actualRowIndex = data.indexOf(filteredData[row]);
 
-    if (colType === 'string[]') {
-      if (newValue.kind === 'bubble') {
-        updatedData[actualRowIndex][colKey] = newValue.data as string[];
+    let suggestion = "";
+
+    if (colType === "string[]") {
+      if (newValue.kind === "bubble") {
+        const bubbleValue = newValue.data as string[];
+        updatedData[actualRowIndex][colKey] = bubbleValue;
+        suggestion = JSON.stringify(bubbleValue);
       }
-    } 
-    else {
-      if (newValue.kind === 'text') {
-        updatedData[actualRowIndex][colKey] = newValue.data as string;
+    } else {
+      if (newValue.kind === "text") {
+        const textValue = newValue.data as string;
+        updatedData[actualRowIndex][colKey] = textValue;
+        suggestion = textValue;
       }
     }
 
     setData(updatedData);
     setFilteredData(updatedData);
 
-    recordCellEdit();
+    const rowObj = filteredData[row];
+    const rowId = Number(rowObj["idUniqueID"]);
+    const columnId = suggestionTypeIds[colKey];
+
+    recordCellEdit(columnId, rowId, suggestion);
+
+    setContributionSnackbarOpen(true);
   };
 
   const onGridSelectionChange = (newSelection: GridSelection) => {
@@ -555,13 +593,13 @@ export default function App() {
 
     if (cell) {
       const [col, row] = cell;
-
+      const colKey = columns[col].id as string;
       const rowObj = filteredData[row];
+
       if (rowObj) {
         const rowId = Number(rowObj["idUniqueID"]);
-        // id is now row index * num columns + col index
-        const cellId = rowId * columns.length + col;
-        recordCellClick(cellId, rowObj);
+        const columnId = suggestionTypeIds[colKey];
+        recordCellClick(columnId, rowId, rowObj);
       }
     }
 
@@ -586,7 +624,7 @@ export default function App() {
     }
 
     if (selectedRows.length === 0) {
-      setSnackbarOpen(true);
+      setAlertSnackbarOpen(true);
       setIsDeletingRow(false);
       return;
     }
@@ -616,11 +654,15 @@ export default function App() {
       columns: CompactSelection.empty(),
     });
 
-    recordRowDelete(deleteComment);
+    const rowObj = pendingDeleteRows[0];
+    const rowId = Number(rowObj["idUniqueID"]);
+    recordRowDelete(rowId, deleteComment);
 
     setIsDeletingRow(false);
     setDeleteComment("");
     setPendingDeleteRows([]);
+
+    setContributionSnackbarOpen(true);
   };
 
   const handleDeleteRowCancel = () => {
@@ -629,8 +671,12 @@ export default function App() {
     setPendingDeleteRows([]);
   };
 
-  const handleSnackbarClose = () => {
-    setSnackbarOpen(false);
+  const handleAlertSnackbarClose = () => {
+    setAlertSnackbarOpen(false);
+  };
+
+  const handleContributionSnackbarClose = () => {
+    setContributionSnackbarOpen(false);
   };
 
   const handleAddRowConfirm = () => {
@@ -638,20 +684,42 @@ export default function App() {
       return;
     }
 
-    // fix works assuming idUniqueID increments by 1
-    const lastRow = data[data.length - 1];
-    const newRowId = Number(lastRow["idUniqueID"]) + 1;
+    // only works if has column idUniqueID and is sequential and has no gaps (may need to change)
+    const newRowId =
+      data.length > 0
+        ? Math.max(...data.map((row) => Number(row["idUniqueID"]))) + 1
+        : 1;
 
     const rowToAdd: ColumnData = {
       ...newRowData,
       idUniqueID: String(newRowId),
     };
 
-    // id is now row index * num columns + col index
-    const cellId = newRowId * columns.length + 0;
-    recordRowAdd(cellId);
+    const cells = columns.map((col) => {
+      const colKey = col.id as string;
+      const rawValue = rowToAdd[colKey];
+
+      let suggestion = "";
+
+      if (Array.isArray(rawValue)) {
+        suggestion = JSON.stringify(rawValue);
+      } 
+      else if (rawValue != null) {
+        suggestion = String(rawValue);
+      }
+
+      return {
+        IDSuggestionType: suggestionTypeIds[colKey],
+        Suggestion: suggestion,
+        Active: 1, // default
+        Confidence: 0, // default
+      };
+    });
+
+    recordRowAdd(newRowId, cells);
 
     setData((prev) => [...prev, rowToAdd]);
+    setFilteredData((prev) => [...prev, rowToAdd]);
 
     const resetObj: ColumnData = {};
     for (const key of Object.keys(columnSchema)) {
@@ -660,6 +728,8 @@ export default function App() {
 
     setNewRowData(resetObj);
     setIsAddingRow(false);
+
+    setContributionSnackbarOpen(true);
   };
 
   const valueToString = (v: unknown): string => {
@@ -768,14 +838,16 @@ export default function App() {
         selectedOptions={selectedMultiOptions}
         setSelectedOptions={setSelectedMultiOptions}
         title = "Select Value(s)"
+        column={editingCell?.colKey}
       />
 
-      <TextInputModal
+      <FreeTextModal
         isOverlayVisible={isTextOverlayVisible}
         setIsOverlayVisible={setIsTextOverlayVisible}
         title={"Edit Value"}
         value={textDraft}
         setValue={setTextDraft}
+        column={editingCell?.colKey}
         handleSave={handleSaveText}
       />
 
@@ -787,6 +859,7 @@ export default function App() {
         value={textDraft}
         setValue={setTextDraft}
         handleSave={handleSaveDropdown}
+        column={editingCell?.colKey}
       />
 
       <DropdownFreeTextModal
@@ -799,11 +872,23 @@ export default function App() {
         draftValue={freeTextAltDraft}
         setDraftValue={setFreeTextAltDraft}
         handleSave={handleSaveDropdownFreeText}
+        column={editingCell?.colKey}
       />
 
-      <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={handleSnackbarClose}>
-        <Alert onClose={handleSnackbarClose} severity="warning">
+      <Snackbar open={alertSnackbarOpen} autoHideDuration={5000} onClose={handleAlertSnackbarClose}>
+        <Alert onClose={handleAlertSnackbarClose} severity="warning">
           Please select a cell or row first.
+        </Alert>
+      </Snackbar>
+
+      <Snackbar open={contributionSnackbarOpen} autoHideDuration={5000} onClose={handleContributionSnackbarClose}>
+        <Alert onClose={handleContributionSnackbarClose} severity="success"
+          sx={{
+            backgroundColor: "#0b89ff",
+            color: "#fff",
+          }}
+        >
+          Thanks for contributing! You'll see your edits fully reflect within 15 minutes.
         </Alert>
       </Snackbar>
 
