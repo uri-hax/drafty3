@@ -654,6 +654,7 @@ export default function App() {
       columns: CompactSelection.empty(),
     });
 
+    // only delete one row at a time for now
     const rowObj = pendingDeleteRows[0];
     const rowId = Number(rowObj["idUniqueID"]);
     recordRowDelete(rowId, deleteComment);
@@ -684,20 +685,9 @@ export default function App() {
       return;
     }
 
-    // only works if has column idUniqueID and is sequential and has no gaps (may need to change)
-    const newRowId =
-      data.length > 0
-        ? Math.max(...data.map((row) => Number(row["idUniqueID"]))) + 1
-        : 1;
-
-    const rowToAdd: ColumnData = {
-      ...newRowData,
-      idUniqueID: String(newRowId),
-    };
-
     const cells = columns.map((col) => {
       const colKey = col.id as string;
-      const rawValue = rowToAdd[colKey];
+      const rawValue = newRowData[colKey];
 
       let suggestion = "";
 
@@ -716,20 +706,34 @@ export default function App() {
       };
     });
 
-    recordRowAdd(newRowId, cells);
+    recordRowAdd(
+      cells,
+      async (res) => {
+        const responseData = await res.json();
+        const newRowId = Number(responseData.idUniqueID);
 
-    setData((prev) => [...prev, rowToAdd]);
-    setFilteredData((prev) => [...prev, rowToAdd]);
+        const rowToAdd: ColumnData = {
+          ...newRowData,
+          idUniqueID: String(newRowId),
+        };
 
-    const resetObj: ColumnData = {};
-    for (const key of Object.keys(columnSchema)) {
-      resetObj[key] = columnSchema[key].type === "string[]" ? [] : "";
-    }
+        setData((prev) => [...prev, rowToAdd]);
+        setFilteredData((prev) => [...prev, rowToAdd]);
 
-    setNewRowData(resetObj);
-    setIsAddingRow(false);
+        const resetObj: ColumnData = {};
+        for (const key of Object.keys(columnSchema)) {
+          resetObj[key] = columnSchema[key].type === "string[]" ? [] : "";
+        }
 
-    setContributionSnackbarOpen(true);
+        setNewRowData(resetObj);
+        setIsAddingRow(false);
+
+        setContributionSnackbarOpen(true);
+      },
+      (err) => {
+        console.error("Failed to add row:", err);
+      }
+    );
   };
 
   const valueToString = (v: unknown): string => {

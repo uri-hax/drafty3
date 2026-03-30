@@ -2070,6 +2070,14 @@ func (h *EditDelRowHandler) CreateEditDelRow(c echo.Context) error {
 			}
 		}
 
+		// deactivate the row itself in UniqueId
+		zero := int64(0)
+		if err := tx.Model(&data_model.UniqueId{}).
+			Where("idUniqueID = ?", payload.IDUniqueID).
+			Update("active", zero).Error; err != nil {
+			return err
+		}
+
 		// create EditDelRow linked to Edit and UniqueId
 		edr = data_model.EditDelRow{
 			IDEdit:     edit.IDEdit,
@@ -2246,7 +2254,6 @@ type createEditNewRowCellPayload struct {
 type createEditNewRowPayload struct {
 	IDInteractionType int64                         `json:"IDInteractionType"`
 	IDEntryType       int64                         `json:"IDEntryType"`
-	IDUniqueID        int64                         `json:"IDUniqueID"`
 	Mode              string                        `json:"Mode"`
 	IsCorrect         int64                         `json:"IsCorrect"`
 	Cells             []createEditNewRowCellPayload `json:"Cells"`
@@ -2292,9 +2299,20 @@ func (h *EditNewRowHandler) CreateEditNewRow(c echo.Context) error {
 	var interaction data_model.Interaction
 	var edit data_model.Edit
 	var enr data_model.EditNewRow
+	var uid data_model.UniqueId
 	createdSuggestions := make([]data_model.Suggestions, 0, len(payload.Cells))
 
 	err = h.DB.Transaction(func(tx *gorm.DB) error {
+		// create the UniqueId row for this new row
+		notes := ""
+		uid = data_model.UniqueId{
+			Active: 1,
+			Notes:  &notes,
+		}
+		if err := tx.Create(&uid).Error; err != nil {
+			return err
+		}
+
 		// create Interaction using IDSession from cookie
 		interaction = data_model.Interaction{
 			IDSession:         sessionID,
@@ -2322,7 +2340,7 @@ func (h *EditNewRowHandler) CreateEditNewRow(c echo.Context) error {
 
 			suggestion := data_model.Suggestions{
 				IDSuggestionType: cell.IDSuggestionType,
-				IDUniqueID:       payload.IDUniqueID,
+				IDUniqueID:       uid.IDUniqueID,
 				IDProfile:        profileID,
 				Suggestion:       cell.Suggestion,
 				Active:           &active,
@@ -2356,12 +2374,13 @@ func (h *EditNewRowHandler) CreateEditNewRow(c echo.Context) error {
 		})
 	}
 
-	// return created rows
+	// return new rows in UniqueId, Edit, Suggestions, and EditNewRow
 	return c.JSON(http.StatusCreated, echo.Map{
-		"interaction": interaction,
+		"uniqueId":    uid,
+		"idUniqueID":  uid.IDUniqueID,
 		"edit":        edit,
 		"suggestions": createdSuggestions,
-		"editnewrow":  enr,
+		"editNewRow":  enr,
 	})
 }
 

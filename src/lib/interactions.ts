@@ -97,22 +97,22 @@ export function recordColumnSearch(
 
 // row add
 export function recordRowAdd(
-  idUniqueID: number,
   cells: {
     IDSuggestionType: number;
     Suggestion: string;
     Active: number; 
     Confidence: number; 
-  }[]
+  }[],
+  onSuccess?: (res: Response) => void,
+  onError?: (res: Response | Error) => void
 ) {
   recordInteraction(`${getAPI()}/editnewrows`, {
     IDInteractionType: 3, // placeholder
     IDEntryType: 2, // placeholder
-    IDUniqueID: idUniqueID,
     Mode: "normal", // default
     IsCorrect: 2, // default
     Cells: cells,
-  });
+  }, onSuccess, onError);
 }
 
 // row delete

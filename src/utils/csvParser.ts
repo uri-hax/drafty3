@@ -110,12 +110,25 @@ export const fetchCsvData = async (
               let processedValue: string | string[] = value || "";
 
               if (typeof processedValue === 'string') {
-                if (colType === 'string[]') {
-                  processedValue = processedValue.includes(",")
-                    ? processedValue.split(",").map((s) => s.trim())
-                    : [processedValue.trim()];
-                } 
-                else {
+                if (colType === "string[]") {
+                  const trimmed = processedValue.trim();
+
+                  try {
+                    const parsed = JSON.parse(trimmed);
+
+                    if (Array.isArray(parsed)) {
+                      processedValue = parsed.map((item) => String(item).trim());
+                    } 
+                    else {
+                      processedValue = [trimmed];
+                    }
+                  } 
+                  catch {
+                    processedValue = trimmed.includes(",")
+                      ? trimmed.split(",").map((s) => s.trim())
+                      : [trimmed];
+                  }
+                } else {
                   processedValue = processedValue.trim();
                 }
               }
