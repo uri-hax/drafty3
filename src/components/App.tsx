@@ -1,20 +1,3 @@
-/*
-  This component orchestrates the entire application:
-  - Fetches CSV data and optional YAML schema using fetchCsvData, producing:
-    * parsedData: dynamically typed rows (ColumnData)
-    * gridColumns: columns derived from the CSV headers (excluding 'UniqueId')
-    * optionsLists: unique option lists for 'string[]' columns
-    * columnSchema: defines the type (string or string[]) and width and edit type for each column
-  - Handles filtering rows by user-entered text queries in each column
-  - Provides add/delete functionality for rows
-  - Integrates a multi-select modal (MultiSelectModal) for editing string[] columns
-  - Uses DataGridWrapper to render and edit data in a data-agnostic manner
-  - Applies a custom column width configuration
-  - Uses query parameters to preserve filters
-
-  This file completes the data-agnostic refactor by dynamically handling columns, schema, and data.
-*/
-
 import './App.css';
 import "@glideapps/glide-data-grid/dist/index.css";
 import React, { useState, useEffect } from 'react';
@@ -38,8 +21,21 @@ import { recordCellClick, recordCellEdit, recordColumnSearch, recordRowAdd, reco
 import type { ColumnConfig } from '../interfaces/ColumnData';
 import { getColumnId, getSuggestionTypeValues } from "../lib/edits";
 import FreeTextModal from './FreeTextModal';
+import { datasetFiles, datasetLabels } from "../config/AppConfig";
+import {
+  getColumnMatches,
+  valueToString,
+  sortRows,
+  handleAlertSnackbarClose,
+  handleContributionSnackbarClose,
+  handleHomePage,
+  handleData,
+  handleEditHistory
+} from "../utils/gridHelper";
+
 
 export default function App() {
+  // create portal div if it doesn't exist to render modals into
   useEffect(() => {
     const portalDiv = document.getElementById('portal');
 
@@ -52,6 +48,7 @@ export default function App() {
 
   const [session, setSession] = useState<BackendSession | null>(null);
 
+  // make sure we have a session before doing anything else
   useEffect(() => {
     ensureSession()
       .then((data) => setSession(data.session))
@@ -85,8 +82,6 @@ export default function App() {
 
   const [alertSnackbarOpen, setAlertSnackbarOpen] = useState<boolean>(false);
   const [contributionSnackbarOpen, setContributionSnackbarOpen] = useState<boolean>(false);
-  // const originBase = new URL(import.meta.env.BASE_URL || '/', window.location.origin);
-  // const url = (p: string) => new URL(p.replace(/^\//, ''), originBase).href;
 
   const [isDeletingRow, setIsDeletingRow] = useState<boolean>(false);
   const [deleteComment, setDeleteComment] = useState<string>("");
@@ -105,23 +100,14 @@ export default function App() {
 
   const [activeOptionsList, setActiveOptionsList] = useState<string[]>([]);
 
-  const datasetFiles: Record<string, { csv: string; yaml: string; }> = {
-    csprofs: {
-      csv: "suggestions.csv",
-      yaml: "csprofessors.yaml",
-    },
-    students: {
-      csv: "students.csv",
-      yaml: "students.yaml",
-    },
-  };
-
+  // get the dataset we're in from the url
   const base = import.meta.env.BASE_URL;
   const dataset = window.location.pathname
     .replace(base, "")
     .split("/")
     .filter(Boolean)[0];
 
+  // gather data from csv and yaml, get suggestion type ids, and apply any filters from the url and record the searches if so
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -226,7 +212,8 @@ export default function App() {
   
     fetchData();
   }, [gridWidth]);
- 
+
+  // re-apply filters and sorting whenever relevant state changes
   useEffect(() => {
     if (columns.length === 0 || data.length === 0) return;
 
@@ -254,6 +241,7 @@ export default function App() {
     setFilteredData(finalRows);
   }, [columnFilters, data, columns, sortColKey, sortDir]);
 
+  // update url when filters change
   useEffect(() => {
     if (columns.length === 0) {
       return;
@@ -270,6 +258,7 @@ export default function App() {
     window.history.replaceState(null, '', '?' + params.toString());
   }, [columnFilters, columns]);
 
+  // define widths for columns based on schema config
   const customWidths: Record<string, string> = {};
     for (const key of Object.keys(columnSchema)) {
       if (columnSchema[key]?.width) {
@@ -277,36 +266,7 @@ export default function App() {
       }
     }
 
-  const getColumnMatches = (colKey: string, value: string, rows: ColumnData[]): string[] => {
-    const search = value.trim().toLowerCase();
-    if (!search) {
-      return [];
-    }
-
-    const matches: string[] = [];
-
-    for (const row of rows) {
-      const cellValue = row[colKey];
-
-      if (Array.isArray(cellValue)) {
-        for (const v of cellValue) {
-          const str = v?.toString() ?? "";
-          if (str.toLowerCase().includes(search)) {
-            matches.push(str);
-          }
-        }
-      } 
-      else if (cellValue != null) {
-        const str = cellValue.toString();
-        if (str.toLowerCase().includes(search)) {
-          matches.push(str);
-        }
-      }
-    }
-
-    return Array.from(new Set(matches));
-  };
-
+  // handle the filter change on a column based on the search input and record the search interaction
   const handleColumnFilterChange = (colKey: string, value: string) => {
     const nextFilters: Record<string, string> = {
       ...columnFilters,
@@ -344,6 +304,7 @@ export default function App() {
     );
   };
 
+  // determine if all required fields for adding a new row are filled and valid
   const allFieldsFilled = React.useMemo(() => {
     if (!Object.keys(columnSchema).length || !Object.keys(newRowData).length) return false;
 
@@ -360,13 +321,16 @@ export default function App() {
     });
   }, [columnSchema, newRowData]);
 
+  // determine if the delete comment is filled or not
   const isDeleteCommentFilled = React.useMemo(() => {
     return deleteComment.trim() !== "";
   }, [deleteComment]);
 
+  // get the suggestion type values for a given column to show in the dropdowns on editing
   const getOptionsForCol = (colKey: string) =>
     suggestionTypeValues[colKey] ?? optionsLists[colKey] ?? [];
 
+  // ensure suggestion type values are loaded for a given column by fetching from the backend based on the suggestion type id if not already loaded
   const ensureSuggestionValuesLoaded = (colKey: string) => {
     if (suggestionTypeValues[colKey]) {
       return;
@@ -400,14 +364,12 @@ export default function App() {
     );
   };
 
+  // handle when a cell is activated for editing by showing the appropriate overlay based on the column config for that cell
   const onCellEditorActivated = (cell: Item) => {
     const [col, row] = cell;
     const colKey = columns[col].id as string;
 
     const rowObj = filteredData[row];
-    // const rowId = Number(rowObj["idUniqueID"]);
-    // const columnId = suggestionTypeIds[colKey];
-    // recordCellClick(columnId, rowId, rowObj);
 
     setIsMultiOverlayVisible(false);
     setIsTextOverlayVisible(false);
@@ -459,11 +421,12 @@ export default function App() {
       return;
     }
 
-    // fallback -> free text
+    // fallback is free text
     setTextDraft(cellVal != null ? String(cellVal) : "");
     setIsTextOverlayVisible(true);
   };
 
+  // handle saving an edit from the multi select modal by updating the data and filtered data states, closing the modal, and recording the edit interaction
   const handleSaveMulti = () => {
     if (editingCell) {
       const { row, colKey } = editingCell;
@@ -486,6 +449,7 @@ export default function App() {
     }
   };
 
+  // handle saving an edit from the free text modal by updating the data and filtered data states, closing the modal, and recording the edit interaction
   const handleSaveText = () => {
     if (editingCell) {
       const { row, colKey } = editingCell;
@@ -507,6 +471,7 @@ export default function App() {
     }
   };
 
+  // handle saving an edit from the dropdown modal by updating the data and filtered data states, closing the modal, and recording the edit interaction
   const handleSaveDropdown = () => {
     if (editingCell) {
       const { row, colKey } = editingCell;
@@ -528,6 +493,7 @@ export default function App() {
     }
   };
 
+  // handle saving an edit from the dropdown + free text modal by updating the data and filtered data states, closing the modal, and recording the edit interaction
   const handleSaveDropdownFreeText = () => {
     if (editingCell) {
       const { row, colKey } = editingCell;
@@ -553,6 +519,7 @@ export default function App() {
     }
   };
 
+  // old handle cell edit function for free text edits before modals (not currently used)
   const onCellEdited = (cell: Item, newValue: EditableGridCell | BubbleCell) => {
     const [col, row] = cell;
     const colKey = columns[col].id as string;
@@ -588,6 +555,7 @@ export default function App() {
     setContributionSnackbarOpen(true);
   };
 
+  // handle when the grid selection changes by recording the cell click interaction if a cell is selected and updating the grid selection state
   const onGridSelectionChange = (newSelection: GridSelection) => {
     const cell = newSelection.current?.cell;
 
@@ -606,6 +574,7 @@ export default function App() {
     setGridSelection(newSelection);
   };
 
+  // handle deleting a row by showing the delete confirmation footer if a row is selected or a cell is selected, and showing an alert if no row or cell is selected
   const handleDeleteRow = () => {
     let selectedRows: ColumnData[] = [];
 
@@ -635,6 +604,7 @@ export default function App() {
     setIsAddingRow(false);
   };
 
+  // handle confirming the deletion of a row by updating the data and filtered data states to remove the deleted row, resetting the grid selection, recording the delete interaction with the provided comment, and showing a snackbar confirming the contribution
   const handleDeleteRowConfirm = () => {
     if (!isDeleteCommentFilled) {
       return;
@@ -666,20 +636,14 @@ export default function App() {
     setContributionSnackbarOpen(true);
   };
 
+  // handle canceling the deletion of a row by resetting the relevant state
   const handleDeleteRowCancel = () => {
     setIsDeletingRow(false);
     setDeleteComment("");
     setPendingDeleteRows([]);
   };
 
-  const handleAlertSnackbarClose = () => {
-    setAlertSnackbarOpen(false);
-  };
-
-  const handleContributionSnackbarClose = () => {
-    setContributionSnackbarOpen(false);
-  };
-
+  // handle confirming the addition of a row by validating that all required fields are filled, sending the add row interaction data to the backend to be added to the database and getting back the new row id, updating the data and filtered data states to include the new row, resetting the new row form, and showing a snackbar confirming the contribution
   const handleAddRowConfirm = () => {
     if (!allFieldsFilled) {
       return;
@@ -736,34 +700,7 @@ export default function App() {
     );
   };
 
-  const valueToString = (v: unknown): string => {
-    if (v == null) {
-      return "";
-    }
-    if (Array.isArray(v)) {
-      return [...v].sort().join(", ");
-    }
-    return String(v);
-  };
-
-  const sortRows = (
-    rows: ColumnData[],
-    colKey: string,
-    dir: "asc" | "desc"
-  ): ColumnData[] => {
-    return [...rows].sort((r1, r2) => {
-      const a = valueToString(r1[colKey]);
-      const b = valueToString(r2[colKey]);
-
-      if (dir === "asc") {
-        return a.localeCompare(b);
-      } 
-      else {
-        return b.localeCompare(a);
-      }
-    });
-  };
-
+  // handle sorting when a column header is clicked by updating the sort column and direction state
   const handleHeaderSort = (colKey: string) => {
     if (sortColKey !== colKey) {
       setSortColKey(colKey);
@@ -774,32 +711,17 @@ export default function App() {
     }
   };
 
-  const handleHomePage = () => {
-    window.location.href = `${base}`;
-  }
-
-  const handleData = () => {
-    window.location.href = `${base}${datasetFiles[dataset].csv}`;
-  }
-
-  const handleEditHistory = () => {
-    window.location.href = `${base}${dataset}/history`;
-  };
-
-  const datasetLabels: Record<string, string> = {
-    csprofs: "CS Professors",
-    students: "Students",
-  };
-
+  // get the label for the current dataset to show in the UI
   const datasetLabel = datasetLabels[dataset];
 
+  // render the app with the action buttons at the top, filter bar below that if there are columns, the data grid taking up the rest of the space, and various modals and snackbars as needed
   return (
     <div className="App" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <ActionButtons
         datasetLabel={datasetLabel}
-        handleHomePage={handleHomePage}
-        handleData={handleData}
-        handleEditHistory={handleEditHistory}
+        handleHomePage={() => handleHomePage(base)}
+        handleData={() => handleData(base, dataset)}
+        handleEditHistory={() => handleEditHistory(base, dataset)}
         setIsAddingRow={setIsAddingRow}
         handleDeleteRow={handleDeleteRow}
         setIsDeletingRow={setIsDeletingRow}
@@ -879,14 +801,27 @@ export default function App() {
         column={editingCell?.colKey}
       />
 
-      <Snackbar open={alertSnackbarOpen} autoHideDuration={5000} onClose={handleAlertSnackbarClose}>
-        <Alert onClose={handleAlertSnackbarClose} severity="warning">
+      <Snackbar
+        open={alertSnackbarOpen}
+        autoHideDuration={5000}
+        onClose={() => handleAlertSnackbarClose(setAlertSnackbarOpen)}
+      >
+        <Alert
+          onClose={() => handleAlertSnackbarClose(setAlertSnackbarOpen)}
+          severity="warning"
+        >
           Please select a cell or row first.
         </Alert>
       </Snackbar>
 
-      <Snackbar open={contributionSnackbarOpen} autoHideDuration={5000} onClose={handleContributionSnackbarClose}>
-        <Alert onClose={handleContributionSnackbarClose} severity="success"
+      <Snackbar
+        open={contributionSnackbarOpen}
+        autoHideDuration={5000}
+        onClose={() => handleContributionSnackbarClose(setContributionSnackbarOpen)}
+      >
+        <Alert
+          onClose={() => handleContributionSnackbarClose(setContributionSnackbarOpen)}
+          severity="success"
           sx={{
             backgroundColor: "#0b89ff",
             color: "#fff",
