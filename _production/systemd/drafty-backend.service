@@ -1,0 +1,14 @@
+[Unit]
+Description=Drafty Go Backend
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/vol/drafty3/backend
+ExecStart=/vol/drafty3/backend/bin/drafty-backend
+Restart=always
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target

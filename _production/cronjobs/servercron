@@ -1,0 +1,4 @@
+# /etc/cron.d/
+
+### render sheets
+*/15 * * * * root cd /vol/drafty3/_production && ./deploy.sh
