@@ -1,4 +1,7 @@
 # /etc/cron.d/
 
-### render sheets
-*/15 * * * * root cd /vol/drafty3/_production && ./deploy.sh
+### rebuild backend api - TODO - not done
+*/15 * * * * root cd /vol/drafty3/ && git pull && cd /vol/drafty3/_production && ./deploy.sh
+
+### rebuild CSV
+*/15 * * * * root cd <some place> && <some script> && <some git cmd>
