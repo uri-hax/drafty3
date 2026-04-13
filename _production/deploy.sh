@@ -6,7 +6,7 @@ set -e
 echo "STARTING Drafty Backend Build/Deployment..."
 
 SCRIPT_DIR=$(pwd)
-BACKEND_DIR="/vol/drafty3"
+BACKEND_DIR="/vol/drafty3/backend"
 
 BACKEND_SERVICE="drafty-backend.service"
 
@@ -16,7 +16,7 @@ systemctl stop drafty-backend || true
 echo "...building go backend"
 cd $BACKEND_DIR/endpoints
 go build -o drafty-backend
-mv drafty-backend ../bin/
+mv drafty-backend /vol/drafty3/bin
 
 echo "...installing systemd service files from cwd"
 cp "$SCRIPT_DIR/$BACKEND_SERVICE" /etc/systemd/system/

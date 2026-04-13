@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/vol/drafty3/backend
-ExecStart=/vol/drafty3/backend/bin/drafty-backend
+ExecStart=/vol/drafty3/bin/drafty-backend
 Restart=always
 RestartSec=3
 User=root

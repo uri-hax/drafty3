@@ -1,7 +1,7 @@
 # /etc/cron.d/
 
-### rebuild backend api - TODO - not done
-*/15 * * * * root cd /vol/drafty3/ && git pull && cd /vol/drafty3/_production && ./deploy.sh
+### rebuild backend api 
+*/15 * * * * root cd /vol/drafty3 && ./_production/cronjobs/backend-update.sh
 
 ### rebuild CSV
-*/15 * * * * root cd <some place> && <some script> && <some git cmd>
+*/15 * * * * root cd /vol/drafty3 && ./_production/cronjobs/frontend-csv-update.sh
