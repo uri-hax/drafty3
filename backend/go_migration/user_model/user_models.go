@@ -2,6 +2,8 @@ package user_model
 
 import "time"
 
+// all data models for users db
+
 type Session struct {
 	IDSession int64     `gorm:"column:idSession;primaryKey;autoIncrement"`
 	IDProfile int64     `gorm:"column:idProfile;index:fk_Session_Profile1_idx"`

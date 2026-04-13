@@ -2,6 +2,8 @@ package data_model
 
 import "time"
 
+// all data models for main dbs
+
 type Alias struct {
 	IDAlias      int64   `gorm:"column:idAlias;primaryKey;autoIncrement"`
 	IDSuggestion int64   `gorm:"column:idSuggestion;not null;index:fk_Alias_Suggestion1_idx;uniqueIndex:unique_index"`

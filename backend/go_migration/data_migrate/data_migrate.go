@@ -9,14 +9,17 @@ import (
 	"drafty3/go_migration/data_model"
 )
 
+// function to create sqlite db for dataset dbs from gorm automigrate and log any errors
 func main() {
-	dsn := "../../db/students_gorm.db?_pragma=foreign_keys(1)"
+	// where to make new sqlite db - can be changed as needed
+	dsn := "../../db/drafty_new_gorm.db?_pragma=foreign_keys(1)"
+	// open new sqlite db using gorm
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("open sqlite: %v", err)
 	}
 
-	// AutoMigrate all models
+	// automigrate all models
 	if err := db.AutoMigrate(
 		&data_model.Alias{},
 		&data_model.Click{},
@@ -60,8 +63,10 @@ func main() {
 		&data_model.Visit{},
 		&data_model.Sessions{},
 	); err != nil {
+		// log any errors
 		log.Fatalf("automigrate: %v", err)
 	}
 
-	log.Println("AutoMigrate complete. SQLite database created: students_gorm.db")
+	// log success
+	log.Println("AutoMigrate complete. SQLite database created: drafty_new_gorm.db")
 }

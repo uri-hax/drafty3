@@ -1,17 +1,3 @@
-/*
-  Displays a footer UI when adding a new row to the dataset.
-  - Dynamically generates input fields for each column, based on the column schema:
-    * string columns: TextField input
-    * string[] columns: Autocomplete multiple-select input
-  - Includes a confirm button (checks if all fields are filled) and a cancel button to discard changes.
-  - Relies on parent-provided:
-    * columnKeys: array of column names
-    * columnSchema: defines column types ('string' or 'string[]')
-    * optionsLists: map of column name -> unique string values (for Autocomplete)
-    * newRowData and setNewRowData: state for building a new row before adding it
-    * allFieldsFilled: boolean indicating if all inputs have values
-*/
-
 import React from 'react';
 import {
   TextField,
@@ -22,9 +8,11 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import type { ColumnConfig, ColumnData } from '../interfaces/ColumnData';
 
+// set fonts
 const monoFont =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
 
+// interface for add row footer props
 interface AddRowFooterProps {
   columnKeys: string[];
   newRowData: ColumnData;
@@ -36,6 +24,7 @@ interface AddRowFooterProps {
   columnSchema: Record<string, ColumnConfig>;
 }
 
+// component for add row footer - appears at bottom of page when adding a new row contains inputs for new row
 const AddRowFooter: React.FC<AddRowFooterProps> = ({
   columnKeys,
   newRowData,
@@ -62,12 +51,12 @@ const AddRowFooter: React.FC<AddRowFooterProps> = ({
       fontFamily: monoFont,
     }}
   >
-    {/* Inputs */}
+    {/* Inputs - dynamically generated field inputs based on column schema*/}
     <div style={{ display: 'flex', flex: 1, alignItems: 'center', overflowX: 'auto' }}>
       {columnKeys.map((key) => {
         const colType = columnSchema[key].type || 'string';
 
-        // --- string[] columns ---
+        // string[] columns - use autocomplete with multiple select
         if (colType === 'string[]') {
           const currentValues = Array.isArray(newRowData[key])
             ? (newRowData[key] as string[])
@@ -119,7 +108,7 @@ const AddRowFooter: React.FC<AddRowFooterProps> = ({
           );
         }
 
-        // --- string columns ---
+        // string columns - use regular text field
         const currentValue =
           typeof newRowData[key] === 'string'
             ? (newRowData[key] as string)
@@ -157,7 +146,7 @@ const AddRowFooter: React.FC<AddRowFooterProps> = ({
       })}
     </div>
 
-    {/* Actions */}
+    {/* actions - confirm button if all fields are filled and option for cancel button */}
     <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
       <IconButton
         onClick={handleAddRowConfirm}
@@ -192,4 +181,5 @@ const AddRowFooter: React.FC<AddRowFooterProps> = ({
   </div>
 );
 
+// export the component
 export default AddRowFooter;

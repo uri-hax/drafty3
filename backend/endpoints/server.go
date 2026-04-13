@@ -14,6 +14,9 @@ import (
 	"drafty3/endpoints/handler"
 )
 
+// students test db and routes currently disabled
+
+// create all api routes for main db and handlers for those routes
 func registerRoutes(api *echo.Group, db *gorm.DB) {
 	// create handlers with dataset db
 	suggestionsHandler := handler.NewSuggestionsHandler(db)
@@ -208,6 +211,7 @@ func registerRoutes(api *echo.Group, db *gorm.DB) {
 	api.POST("/visits", visitHandler.CreateVisit)
 }
 
+// create all api routes for users db and handlers for those routes
 func registerUserRoutes(api *echo.Group, usersDB *gorm.DB) {
 	profileHandler := handler.NewProfileHandler(usersDB)
 	sessionsHandler := handler.NewSessionsHandler(usersDB)
@@ -219,52 +223,63 @@ func registerUserRoutes(api *echo.Group, usersDB *gorm.DB) {
 	api.POST("/sessions", sessionsHandler.CreateSessions)
 }
 
+// main function to set up the echo server and connect to dbs
 func main() {
+	// create echo instance
 	e := echo.New()
 
+	// set up session middleware with cookie store and a temporary secret key
 	e.Use(esession.Middleware(sessions.NewCookieStore([]byte("temp_secret_key"))))
 
+	// get db paths from environment variables or use defaults
 	dbRoot := os.Getenv("DB_ROOT")
 	if dbRoot == "" {
 		dbRoot = "../db"
 	}
 
+	// get db paths from environment variables or use defaults
 	csprofsPath := os.Getenv("DB_PATH_CSPROFS")
 	if csprofsPath == "" {
 		csprofsPath = filepath.Join(dbRoot, "drafty_new_gorm.db")
 	}
 
-	studentsPath := os.Getenv("DB_PATH_STUDENTS")
-	if studentsPath == "" {
-		studentsPath = filepath.Join(dbRoot, "students_gorm.db")
-	}
+	// studentsPath := os.Getenv("DB_PATH_STUDENTS")
+	// if studentsPath == "" {
+	// 	studentsPath = filepath.Join(dbRoot, "students_gorm.db")
+	// }
 
+	// get db paths from environment variables or use defaults
 	usersPath := os.Getenv("DB_PATH_USERS")
 	if usersPath == "" {
 		usersPath = filepath.Join(dbRoot, "users_gorm.db")
 	}
 
+	// connect to db using gorm
 	dbCsprofs, err := gorm.Open(sqlite.Open(csprofsPath), &gorm.Config{})
 	if err != nil {
 		log.Fatal("failed to connect csprofs db:", err)
 	}
 
-	dbStudents, err := gorm.Open(sqlite.Open(studentsPath), &gorm.Config{})
-	if err != nil {
-		log.Fatal("failed to connect students db:", err)
-	}
+	// dbStudents, err := gorm.Open(sqlite.Open(studentsPath), &gorm.Config{})
+	// if err != nil {
+	// 	log.Fatal("failed to connect students db:", err)
+	// }
 
+	// connect to users db using gorm
 	dbUsers, err := gorm.Open(sqlite.Open(usersPath), &gorm.Config{})
 	if err != nil {
 		log.Fatal("failed to connect users db:", err)
 	}
 
+	// create api group
 	api := e.Group("/api")
 
+	// register routes for each dataset and users
 	registerRoutes(api.Group("/csprofs"), dbCsprofs)
-	registerRoutes(api.Group("/students"), dbStudents)
+	//registerRoutes(api.Group("/students"), dbStudents)
 	registerUserRoutes(api.Group("/users"), dbUsers)
 
+	// start the server and log failures
 	log.Println("Server running on http://localhost:8081")
 	e.Logger.Fatal(e.Start(":8081"))
 }
