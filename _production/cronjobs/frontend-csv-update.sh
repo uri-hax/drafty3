@@ -5,6 +5,7 @@ set -e
 
 # root repo directory
 REPO_DIR="/c/Users/leach/Documents/ResearchProject/drafty3"
+BACKEND_DIR="$REPO_DIR/backend"
 
 # make sure we're in the correct directory
 cd "$REPO_DIR"
@@ -29,7 +30,8 @@ CURRENT_CSV="$REPO_DIR/public/test_suggestions.csv"
 
 # build a fresh csv from the sqlite database (csprofs)
 echo "Generating CSV..."
-go run "$REPO_DIR/backend/csv/build_csv.go" --db "$DB_FILE" --out "$TEMP_CSV" --csv_type "csprofs"
+cd "$BACKEND_DIR"
+go run "$BACKEND_DIR/csv/build_csv.go" --db "$DB_FILE" --out "$TEMP_CSV" --csv_type "csprofs"
 
 # make sure the csv was actually created
 if [ ! -f "$TEMP_CSV" ]; then
