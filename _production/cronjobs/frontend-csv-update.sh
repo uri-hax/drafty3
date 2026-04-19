@@ -4,7 +4,7 @@
 set -e
 
 # root repo directory
-REPO_DIR="/c/Users/leach/Documents/ResearchProject/drafty3"
+REPO_DIR="/vol/drafty3"
 BACKEND_DIR="$REPO_DIR/backend"
 
 # make sure we're in the correct directory
@@ -26,7 +26,7 @@ DB_FILE="$REPO_DIR/backend/db/drafty_new_gorm.db"
 TEMP_CSV="$REPO_DIR/tmp/generated.csv"
 
 # csv file tracked in git that the frontend uses (csprofs)
-CURRENT_CSV="$REPO_DIR/public/test_suggestions.csv"
+CURRENT_CSV="$REPO_DIR/public/suggestions.csv"
 
 # build a fresh csv from the sqlite database (csprofs)
 echo "Generating CSV..."
@@ -56,7 +56,7 @@ rm -f "$TEMP_CSV"
 git add "$CURRENT_CSV"
 
 # commit and push so github updates the frontend
-# git commit -m "Update generated CSV"
-# git push origin main
+git commit -m "Update generated CSV"
+git push origin main
 
 echo "Frontend CSV updated successfully."

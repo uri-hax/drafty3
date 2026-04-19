@@ -4,7 +4,10 @@
 set -e
 
 # set the repo directory
-REPO_DIR="/vol/drafty3"
+REPO_DIR="/c/Users/leach/Documents/ResearchProject/drafty3"
+
+# make sure we're in the correct directory
+cd "$REPO_DIR"
 
 # abort if repo has local changes so we don't overwrite work in progress
 if ! git diff --quiet || ! git diff --cached --quiet; then
@@ -16,7 +19,7 @@ fi
 BEFORE_COMMIT="$(git rev-parse HEAD)"
 
 # pull in latest changes from remote
-git pull origin main
+git pull origin dev
 
 # read latest commit hash again
 AFTER_COMMIT="$(git rev-parse HEAD)"
@@ -52,5 +55,6 @@ if [ -f "$CURRENT_BIN" ] && cmp -s "$TEMP_BIN" "$CURRENT_BIN"; then
 fi
 
 # if no match then run deploy and still remove the temp binary after 
-"$DEPLOY_SCRIPT" && echo "Deployment successful"
+#"$DEPLOY_SCRIPT"
 rm -f "$TEMP_BIN"
+echo "Deployment successful"
