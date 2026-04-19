@@ -25,10 +25,10 @@ BEFORE_COMMIT="$(git rev-parse HEAD)"
 AFTER_COMMIT="$(git rev-parse HEAD)"
 
 # if hashes match then no new changes so exit
-if [ "$BEFORE_COMMIT" = "$AFTER_COMMIT" ]; then
-  echo "No source changes pulled. Exiting."
-  exit 0
-fi
+# if [ "$BEFORE_COMMIT" = "$AFTER_COMMIT" ]; then
+#   echo "No source changes pulled. Exiting."
+#   exit 0
+# fi
 
 # make sure temp directory exists
 mkdir -p "$REPO_DIR/tmp"
