@@ -56,5 +56,5 @@ fi
 
 # if no match then run deploy and still remove the temp binary after 
 #"$DEPLOY_SCRIPT"
-# rm -f "$TEMP_BIN"
+rm -f "$TEMP_BIN"
 echo "Deployment successful"
