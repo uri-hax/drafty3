@@ -20,7 +20,7 @@ cd "$REPO_DIR"
 BEFORE_COMMIT="$(git rev-parse HEAD)"
 
 # pull in latest changes from remote
-git pull origin dev
+git pull --no-edit origin dev
 
 # read latest commit hash again
 AFTER_COMMIT="$(git rev-parse HEAD)"
