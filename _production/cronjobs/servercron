@@ -1,7 +1,7 @@
 # /etc/cron.d/
 
-### rebuild backend api 
+### rebuild backend api and server
 */15 * * * * root cd /vol/drafty3 && /vol/drafty3/_production/cronjobs/backend-update.sh
 
-### rebuild CSV
+### rebuild csv for frontend
 */15 * * * * root cd /vol/drafty3 && /vol/drafty3/_production/cronjobs/frontend-csv-update.sh
