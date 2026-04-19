@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	_ "modernc.org/sqlite"
 )
 
 // model of suggestions table rows we'll be looking at
