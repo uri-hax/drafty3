@@ -11,10 +11,10 @@ BACKEND_DIR="$REPO_DIR/backend"
 cd "$REPO_DIR"
 
 # abort if repo has local changes so we don't overwrite work in progress
-# if ! git diff --quiet || ! git diff --cached --quiet; then
-#   echo "Repo has uncommitted changes. Aborting."
-#   exit 1
-# fi
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "Repo has uncommitted changes. Aborting."
+  exit 1
+fi
 
 # read latest commit hash
 BEFORE_COMMIT="$(git rev-parse HEAD)"
