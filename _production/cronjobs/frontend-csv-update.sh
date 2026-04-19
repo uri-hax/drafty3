@@ -4,7 +4,7 @@
 set -e
 
 # root repo directory
-REPO_DIR="/vol/drafty3"
+REPO_DIR="/c/Users/leach/Documents/ResearchProject/drafty3"
 
 # make sure we're in the correct directory
 cd "$REPO_DIR"
@@ -15,6 +15,9 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   exit 1
 fi
 
+# make sure temp directory exists
+mkdir -p "$REPO_DIR/tmp"
+
 # sqlite database file (csprofs)
 DB_FILE="$REPO_DIR/backend/db/drafty_new_gorm.db"
 
@@ -22,14 +25,11 @@ DB_FILE="$REPO_DIR/backend/db/drafty_new_gorm.db"
 TEMP_CSV="$REPO_DIR/tmp/generated.csv"
 
 # csv file tracked in git that the frontend uses (csprofs)
-CURRENT_CSV="$REPO_DIR/public/suggestions.csv"
-
-# make sure temp directory exists
-mkdir -p "$REPO_DIR/tmp"
+CURRENT_CSV="$REPO_DIR/public/test_suggestions.csv"
 
 # build a fresh csv from the sqlite database (csprofs)
 echo "Generating CSV..."
-go run ./backend/csv/build_csv.go --db "$DB_FILE" --out "$TEMP_CSV" --csv_type "csprofs"
+go run "$REPO_DIR/backend/csv/build_csv.go" --db "$DB_FILE" --out "$TEMP_CSV" --csv_type "csprofs"
 
 # make sure the csv was actually created
 if [ ! -f "$TEMP_CSV" ]; then
@@ -54,7 +54,7 @@ rm -f "$TEMP_CSV"
 git add "$CURRENT_CSV"
 
 # commit and push so github updates the frontend
-git commit -m "Update generated CSV"
-git push origin main
+# git commit -m "Update generated CSV"
+# git push origin main
 
 echo "Frontend CSV updated successfully."

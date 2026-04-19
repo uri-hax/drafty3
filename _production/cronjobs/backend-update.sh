@@ -6,9 +6,6 @@ set -e
 # set the repo directory
 REPO_DIR="/vol/drafty3"
 
-# confirm we're in the correct directory
-cd "$REPO_DIR"
-
 # abort if repo has local changes so we don't overwrite work in progress
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "Repo has uncommitted changes. Aborting."
@@ -29,6 +26,9 @@ if [ "$BEFORE_COMMIT" = "$AFTER_COMMIT" ]; then
   echo "No source changes pulled. Exiting."
   exit 0
 fi
+
+# make sure temp directory exists
+mkdir -p "$REPO_DIR/tmp"
 
 # path to the currently deployed backend binary
 CURRENT_BIN="$REPO_DIR/bin/drafty-backend"
