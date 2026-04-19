@@ -9,10 +9,12 @@ import React from "react";
 import { TextField, Button, IconButton } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 
+// font style for the footer
 const monoFont =
   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
 
-interface DeleteRowFooterProps {
+// interface for the delete row footer props
+  interface DeleteRowFooterProps {
   comment: string;
   setComment: React.Dispatch<React.SetStateAction<string>>;
   handleDeleteRowConfirm: () => void;
@@ -20,6 +22,7 @@ interface DeleteRowFooterProps {
   isCommentFilled: boolean;
 }
 
+// component for the delete row footer - prompts user for deletion reason and has confirm/cancel actions
 const DeleteRowFooter: React.FC<DeleteRowFooterProps> = ({
   comment,
   setComment,
@@ -43,7 +46,7 @@ const DeleteRowFooter: React.FC<DeleteRowFooterProps> = ({
       fontFamily: monoFont,
     }}
   >
-    {/* Inputs */}
+    {/* input - field for comment */}
     <div
       style={{
         display: "flex",
@@ -88,7 +91,7 @@ const DeleteRowFooter: React.FC<DeleteRowFooterProps> = ({
       />
     </div>
 
-    {/* Actions */}
+    {/* actions - confirm button if comment is filled and option for cancel button */}
     <div style={{ display: "flex", alignItems: "center", marginLeft: "auto" }}>
       <IconButton
         onClick={handleDeleteRowConfirm}
@@ -116,4 +119,5 @@ const DeleteRowFooter: React.FC<DeleteRowFooterProps> = ({
   </div>
 );
 
+// export the component
 export default DeleteRowFooter;

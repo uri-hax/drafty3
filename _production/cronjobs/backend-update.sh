@@ -4,8 +4,7 @@
 set -e
 
 # set the repo directory
-REPO_DIR="/c/Users/leach/Documents/ResearchProject/drafty3"
-BACKEND_DIR="$REPO_DIR/backend"
+REPO_DIR="/vol/drafty3"
 
 # make sure we're in the correct directory
 cd "$REPO_DIR"
@@ -20,7 +19,7 @@ fi
 BEFORE_COMMIT="$(git rev-parse HEAD)"
 
 # pull in latest changes from remote
-git pull --no-edit origin dev
+git pull --no-edit origin main
 
 # read latest commit hash again
 AFTER_COMMIT="$(git rev-parse HEAD)"
@@ -42,5 +41,5 @@ fi
 DEPLOY_SCRIPT="$REPO_DIR/_production/deploy.sh"
 
 # run deploy script to swap in new binary and restart server
-#"$DEPLOY_SCRIPT"
+"$DEPLOY_SCRIPT"
 echo "Deployment successful"

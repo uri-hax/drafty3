@@ -51,7 +51,7 @@ const AddRowFooter: React.FC<AddRowFooterProps> = ({
       fontFamily: monoFont,
     }}
   >
-    {/* Inputs - dynamically generated field inputs based on column schema*/}
+    {/* inputs - dynamically generated field inputs based on column schema */}
     <div style={{ display: 'flex', flex: 1, alignItems: 'center', overflowX: 'auto' }}>
       {columnKeys.map((key) => {
         const colType = columnSchema[key].type || 'string';

@@ -2,11 +2,13 @@ import React from "react";
 import DataEditor, { GridCellKind, type GridCell, type GridColumn, type Item } from "@glideapps/glide-data-grid";
 import "@glideapps/glide-data-grid/dist/index.css";
 
+// test columns
 const columns: GridColumn[] = [
   { title: "ID", id: "id" },
   { title: "Name", id: "name" },
 ];
 
+// test content 
 function getCellContent([col, row]: Item): GridCell {
   if (col === 0) {
     return {
@@ -24,6 +26,7 @@ function getCellContent([col, row]: Item): GridCell {
   };
 }
 
+// test component to test the glide data grid with basic columns and content - can be used for testing features in isolation before integrating into the main data grid component
 export default function TestGrid() {
   return (
     <div style={{ padding: 16 }}>

@@ -8,8 +8,10 @@
 import React from "react";
 import { Modal, Button, TextField, Box, Typography } from "@mui/material";
 
+// set font for the modal
 const monoFont = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
+// interface for the free text modal props
 interface FreeTextModalProps {
   isOverlayVisible: boolean;
   setIsOverlayVisible: React.Dispatch<React.SetStateAction<boolean>>;
@@ -23,6 +25,7 @@ interface FreeTextModalProps {
   handleSave: () => void;
 }
 
+// component for the free text modal - allows user to enter free text and save the value on edit
 const FreeTextModal: React.FC<FreeTextModalProps> = ({
   isOverlayVisible,
   setIsOverlayVisible,
@@ -47,6 +50,7 @@ const FreeTextModal: React.FC<FreeTextModalProps> = ({
         boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
       }}
     >
+      {/* title with column name to display */}
       <Typography
         sx={{
           fontSize: 14,
@@ -58,6 +62,7 @@ const FreeTextModal: React.FC<FreeTextModalProps> = ({
         {column}: {title}
       </Typography>
 
+      {/* text field for free text input with value and onChange to update state in parent */}
       <TextField
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -69,6 +74,7 @@ const FreeTextModal: React.FC<FreeTextModalProps> = ({
         }}
       />
 
+      {/* save button to save the entered value with click to call prop handle save */}
       <Box sx={{ display: "flex", justifyContent: "flex-end", marginTop: 2 }}>
         <Button
           variant="contained"
@@ -89,4 +95,5 @@ const FreeTextModal: React.FC<FreeTextModalProps> = ({
   </Modal>
 );
 
+// export the component
 export default FreeTextModal;

@@ -1,18 +1,3 @@
-// src/components/MultiSelectModal.tsx
-
-/*
-  A generic modal for selecting multiple string values from a given options list.
-  - Uses Autocomplete with multiple selection.
-  - Triggered by a boolean state, and returns selected options to the parent.
-  - Data-agnostic: can be used for any string[] column, not just a specific one.
-
-  Requires:
-  - isOverlayVisible & setIsOverlayVisible: controls modal visibility
-  - selectedOptions & setSelectedOptions: current selection state
-  - handleSaveOptions: callback to apply the changes
-  - optionsList: array of possible string values
-  - title: optional modal title for clarity
-*/
 import React from "react";
 import {
   Modal,
@@ -23,9 +8,11 @@ import {
   Typography,
 } from "@mui/material";
 
+// set font for the modal
 const monoFont =
   "ui-monospace, SFMono-Regular, Menlo, monospace";
 
+// interface for the multi select modal props
 interface MultiSelectModalProps {
   isOverlayVisible: boolean;
   setIsOverlayVisible: React.Dispatch<React.SetStateAction<boolean>>;
@@ -43,6 +30,7 @@ interface MultiSelectModalProps {
   column?: string;
 }
 
+// component for the multi select modal - allows user to select from dropdown with multiple select and save the values on edit
 const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
   isOverlayVisible,
   setIsOverlayVisible,
@@ -71,6 +59,7 @@ const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
         boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
       }}
     >
+      {/* title with column name to display */}
       <Typography
         sx={{
           fontSize: 14,
@@ -82,6 +71,7 @@ const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
         {column}: {title}
       </Typography>
 
+      {/* dropdown for selecting values from the options list and update value on change */}
       <Autocomplete
         multiple
         options={optionsList}
@@ -105,6 +95,7 @@ const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
             fontFamily: monoFont,
           },
         }}
+        // show prompt conditionally based on multiple vs single select
         getOptionLabel={option => option}
         renderInput={params => (
           <TextField
@@ -114,6 +105,7 @@ const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
         )}
       />
 
+      {/* save button to save the selected values with click to call prop handle save */}
       <Box sx={{ display: "flex", justifyContent: "flex-end", marginTop: 2 }}>
         <Button
           variant="contained"
@@ -134,5 +126,5 @@ const MultiSelectModal: React.FC<MultiSelectModalProps> = ({
   </Modal>
 );
 
-
+// export the component
 export default MultiSelectModal;
