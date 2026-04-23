@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/gorilla/sessions"
-	"github.com/labstack/echo/v4"
 	esession "github.com/labstack/echo-contrib/session"
+	"github.com/labstack/echo/v4"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
@@ -57,6 +57,9 @@ func registerRoutes(api *echo.Group, db *gorm.DB) {
 	searchGoogleHandler := handler.NewSearchGoogleHandler(db)
 	viewChangeHandler := handler.NewViewChangeHandler(db)
 	visitHandler := handler.NewVisitHandler(db)
+
+	// Health
+	api.GET("/health", handler.HealthCheck)
 
 	// Suggestions
 	api.GET("/suggestions/:id", suggestionsHandler.GetSuggestion)

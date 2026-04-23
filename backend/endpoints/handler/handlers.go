@@ -22,6 +22,11 @@ type SuggestionsHandler struct {
 	DB *gorm.DB
 }
 
+// HealthCheckhandler returns a bollean
+func HealthCheck(c echo.Context) error {
+	return c.JSON(http.StatusOK, map[string]string{"status": "healthy"})
+}
+
 // NewSuggestionsHandler returns a new SuggestionsHandler for the given DB
 func NewSuggestionsHandler(db *gorm.DB) *SuggestionsHandler {
 	return &SuggestionsHandler{DB: db}
@@ -563,7 +568,6 @@ func (h *EditSuggestionHandler) CreateEditSuggestion(c echo.Context) error {
 	// return created row
 	return c.JSON(http.StatusCreated, es)
 }
-
 
 // ENTRYTYPE HANDLER
 
@@ -1306,7 +1310,7 @@ func (h *SuggestionTypeHandler) CreateSuggestionType(c echo.Context) error {
 	// return created row
 	return c.JSON(http.StatusCreated, st)
 }
- 
+
 // COPYCOLUMN HANDLER
 
 // CopyColumnHandler holds DB connection
@@ -1618,7 +1622,7 @@ func (h *SuggestionTypeValuesHandler) GetSuggestionTypeValues(c echo.Context) er
 		})
 	}
 
-	// return matched rows 
+	// return matched rows
 	return c.JSON(http.StatusOK, stvs)
 }
 
@@ -2681,7 +2685,7 @@ func (h *SessionsHandler) CreateSessions(c echo.Context) error {
 				})
 			}
 		}
-	// if no profile in cookie then make a new one (first time user)
+		// if no profile in cookie then make a new one (first time user)
 	} else {
 		profile = user_model.Profile{}
 		if err := h.DB.Create(&profile).Error; err != nil {
