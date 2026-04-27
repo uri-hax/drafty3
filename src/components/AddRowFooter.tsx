@@ -148,14 +148,18 @@ const AddRowFooter: React.FC<AddRowFooterProps> = ({
 
     {/* actions - confirm button if all fields are filled and option for cancel button */}
     <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
-      <IconButton
+      <Button
+        variant="contained"
         onClick={handleAddRowConfirm}
         disabled={!allFieldsFilled}
-        sx={{ fontFamily: monoFont }}
-        aria-label="Confirm Add Row"
+        sx={{
+          fontFamily: monoFont,
+          textTransform: 'none',
+          backgroundColor: allFieldsFilled ? '#0b89ff' : undefined,
+        }}
       >
-        <CheckCircleIcon />
-      </IconButton>
+        Submit
+      </Button>
 
       <Button
         variant="contained"

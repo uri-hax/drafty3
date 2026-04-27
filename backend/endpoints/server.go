@@ -2,12 +2,14 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/gorilla/sessions"
 	esession "github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
@@ -233,6 +235,27 @@ func main() {
 
 	// set up session middleware with cookie store and a temporary secret key
 	e.Use(esession.Middleware(sessions.NewCookieStore([]byte("temp_secret_key"))))
+
+	// add testing environment and live site CORS policy
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{
+			"http://localhost:4321",
+			"https://uri-hax.github.io",
+		},
+		AllowMethods: []string{
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodDelete,
+			http.MethodOptions,
+		},
+		AllowHeaders: []string{
+			echo.HeaderOrigin,
+			echo.HeaderContentType,
+			echo.HeaderAccept,
+		},
+		AllowCredentials: true,
+	}))
 
 	// get db paths from environment variables or use defaults
 	dbRoot := os.Getenv("DB_ROOT")

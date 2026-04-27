@@ -5,10 +5,12 @@ import Papa from 'papaparse';
 
 const { dataset } = Astro.props;
 
-const csvFile =
-  dataset === "csprofs"
-    ? "suggestions.csv"
-    : "students.csv";
+// const csvFile =
+//   dataset === "csprofs"
+//     ? "suggestions.csv"
+//     : "students.csv";
+
+const csvFile = "suggestions.csv";
 
 // 1. Read CSV
 const csvPath = path.resolve(`./public/${csvFile}`);

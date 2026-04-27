@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Button,
   Tooltip,
@@ -49,6 +49,9 @@ const gridActionButtonSx: SxProps<Theme> = {
 
 // interface for action buttons props
 interface ActionButtonsProps {
+  backendAvailable?: boolean;
+  flashDowntimeMessage?: boolean;
+  showDowntimeMessage?: () => void;
   datasetLabel: string;
   handleDeleteRow?: () => void;
   setIsDeletingRow?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -60,6 +63,9 @@ interface ActionButtonsProps {
 
 // component for action buttons - appear at top of grid page in header
 const ActionButtons: React.FC<ActionButtonsProps> = ({
+  backendAvailable,
+  flashDowntimeMessage,
+  showDowntimeMessage,
   datasetLabel,
   handleDeleteRow,
   setIsDeletingRow,
@@ -106,7 +112,13 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       {setIsAddingRow && (
         <Tooltip title="Add Row" arrow>
           <Button
-            onClick={() => setIsAddingRow(true)}
+            onClick={() => {
+              if (backendAvailable) {
+                setIsAddingRow(true);
+              } else {
+                showDowntimeMessage?.();
+              }
+            }}
             sx={gridActionButtonSx}
             startIcon={<AddBoxRoundedIcon fontSize="small" />}
           >
@@ -120,8 +132,12 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         <Tooltip title="Delete Row" arrow>
           <Button
             onClick={() => {
-              setIsDeletingRow(true);
-              handleDeleteRow();
+              if (backendAvailable) {
+                setIsDeletingRow(true);
+                handleDeleteRow();
+              } else {
+                showDowntimeMessage?.();
+              }
             }}
             sx={gridActionButtonSx}
             startIcon={
@@ -131,6 +147,31 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
             Delete Row
           </Button>
         </Tooltip>
+      )}
+
+      {/* Downtime message if backend is not available */}
+      {!backendAvailable && (
+        <div
+          style={{
+            marginLeft: 'auto',
+            maxWidth: '500px',
+            color: '#fff',
+            border: '1px solid #fff',
+            borderRadius: '999px',
+            padding: '4px 10px',
+            fontFamily: 'monospace',
+            fontSize: '0.80em',
+            lineHeight: 1.2,
+            textAlign: 'center',
+            transform: flashDowntimeMessage ? 'scale(1.04)' : 'scale(1)',
+            backgroundColor: flashDowntimeMessage
+              ? 'rgba(255,255,255,0.18)'
+              : 'transparent',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          Our server is currently experiencing downtime, so additions, deletions, and edits are not available. We apologize for the inconvenience and will be back up shortly.
+        </div>
       )}
     </div>
   </div>

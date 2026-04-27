@@ -20,6 +20,7 @@ import { ensureSession, type BackendSession } from "../lib/sessions";
 import { recordCellClick, recordCellEdit, recordColumnSearch, recordRowAdd, recordRowDelete } from "../lib/interactions"
 import type { ColumnConfig } from '../interfaces/ColumnData';
 import { getColumnId, getSuggestionTypeValues } from "../lib/edits";
+import { checkBackendHealth } from '../lib/health';
 import FreeTextModal from './FreeTextModal';
 import { datasetFiles, datasetLabels } from "../config/AppConfig";
 import {
@@ -47,13 +48,17 @@ export default function App() {
   }, []);
 
   const [session, setSession] = useState<BackendSession | null>(null);
+  
+  const [backendAvailable, setBackendAvailable] = useState<boolean>(false);
 
   // make sure we have a session before doing anything else
   useEffect(() => {
+    if (!backendAvailable) return;
+
     ensureSession()
       .then((data) => setSession(data.session))
       .catch(console.error);
-  }, []);
+  }, [backendAvailable]);
 
   const gridWidth = useWindowWidth();
 
@@ -100,6 +105,8 @@ export default function App() {
 
   const [activeOptionsList, setActiveOptionsList] = useState<string[]>([]);
 
+  const [flashDowntimeMessage, setFlashDowntimeMessage] = useState(false);
+
   // get the dataset we're in from the url
   const base = import.meta.env.BASE_URL;
   const dataset = window.location.pathname
@@ -111,6 +118,11 @@ export default function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // only do certain things if backend is healthy and available
+        const isHealthy = await checkBackendHealth();
+        setBackendAvailable(isHealthy);
+        console.log("Backend health:", isHealthy);
+
         const { gridColumns, parsedData, optionsLists, columnSchema } =
           await fetchCsvData(
             gridWidth,
@@ -131,31 +143,31 @@ export default function App() {
 
         const schemaColumnNames = Object.keys(columnSchema);
 
-        const idPairs = await Promise.all(
-          schemaColumnNames.map(
-            (name) =>
-              new Promise<[string, number] | null>((resolve) => {
-                getColumnId(
-                  name,
-                  (res) => resolve([name, res.idSuggestionType]),
-                  () => resolve(null) 
-                );
-              })
-          )
-        );
+        if (isHealthy) {
+          const idPairs = await Promise.all(
+            schemaColumnNames.map(
+              (name) =>
+                new Promise<[string, number] | null>((resolve) => {
+                  getColumnId(
+                    name,
+                    (res) => resolve([name, res.idSuggestionType]),
+                    () => resolve(null)
+                  );
+                })
+            )
+          );
 
-        const idMap: Record<string, number> = {};
-        for (const pair of idPairs) {
-          if (!pair) {
-            continue;
+          const idMap: Record<string, number> = {};
+
+          for (const pair of idPairs) {
+            if (!pair) continue;
+
+            const [name, id] = pair;
+            idMap[name] = id;
           }
-          const [name, id] = pair;
-          idMap[name] = id;
+
+          setSuggestionTypeIds(idMap);
         }
-
-        setSuggestionTypeIds(idMap);
-
-        console.log("SuggestionType IDs:", idMap);
   
         const params = new URLSearchParams(window.location.search);
         const initialFilters: Record<string, string> = {};
@@ -174,28 +186,29 @@ export default function App() {
           (v) => v && v.trim() !== ""
         ).length;
 
-        for (const [colKey, value] of Object.entries(initialFilters)) {
-          const trimmed = value.trim();
-          if (!trimmed) {
-            continue;
+        if (isHealthy) {
+          for (const [colKey, value] of Object.entries(initialFilters)) {
+            const trimmed = value.trim();
+            if (!trimmed) continue;
+
+            const matchedValues = getColumnMatches(colKey, value, parsedData);
+            const lowerSearch = trimmed.toLowerCase();
+            const hasExactMatch = matchedValues.some(
+              (m) => m.toLowerCase() === lowerSearch
+            );
+
+            const isPartial = !hasExactMatch;
+            const isMulti = urlFilterCount > 1;
+            const isFromURL = true;
+
+            recordColumnSearch(
+              value,
+              matchedValues,
+              isPartial,
+              isMulti,
+              isFromURL
+            );
           }
-
-          const matchedValues = getColumnMatches(colKey, value, parsedData);
-          const lowerSearch = trimmed.toLowerCase();
-          const hasExactMatch = matchedValues.some(
-            (m) => m.toLowerCase() === lowerSearch
-          );
-          const isPartial = !hasExactMatch;
-          const isMulti = urlFilterCount > 1;
-          const isFromURL = true;
-
-          recordColumnSearch(
-            value,
-            matchedValues,
-            isPartial,
-            isMulti,
-            isFromURL
-          );
         }
 
         const initialNewRowData: ColumnData = {};
@@ -283,25 +296,28 @@ export default function App() {
     const nonEmptyFilterCount = Object.values(nextFilters).filter(
       (v) => v && v.trim() !== ""
     ).length;
-    const isMulti = nonEmptyFilterCount > 1;
 
-    const matchedValues = getColumnMatches(colKey, value, data);
+    if (backendAvailable) {
+      const isMulti = nonEmptyFilterCount > 1;
 
-    const lowerSearch = trimmed.toLowerCase();
-    const hasExactMatch = matchedValues.some(
-      (m) => m.toLowerCase() === lowerSearch
-    );
-    const isPartial = !hasExactMatch;
+      const matchedValues = getColumnMatches(colKey, value, data);
 
-    const isFromURL = false; 
+      const lowerSearch = trimmed.toLowerCase();
+      const hasExactMatch = matchedValues.some(
+        (m) => m.toLowerCase() === lowerSearch
+      );
+      const isPartial = !hasExactMatch;
 
-    recordColumnSearch(
-      value,
-      matchedValues,
-      isPartial,
-      isMulti,
-      isFromURL
-    );
+      const isFromURL = false; 
+
+      recordColumnSearch(
+        value,
+        matchedValues,
+        isPartial,
+        isMulti,
+        isFromURL
+      );
+    }
   };
 
   // determine if all required fields for adding a new row are filled and valid
@@ -341,31 +357,38 @@ export default function App() {
       return;
     }
 
-    getSuggestionTypeValues(
-      id,
-      (rows) => {
-        const values = rows.map((r) => r.Value);
-        setSuggestionTypeValues((prev) => ({
-          ...prev,
-          [colKey]: values,
-        }));
+    if (backendAvailable) {
+      getSuggestionTypeValues(
+        id,
+        (rows) => {
+          const values = rows.map((r) => r.Value);
+          setSuggestionTypeValues((prev) => ({
+            ...prev,
+            [colKey]: values,
+          }));
 
-        setActiveOptionsList(values);
-      },
-      (err) => {
-        console.error(`Failed to load SuggestionTypeValues for ${colKey} (id=${id})`, err);
-        setSuggestionTypeValues((prev) => ({
-          ...prev,
-          [colKey]: [],
-        }));
+          setActiveOptionsList(values);
+        },
+        (err) => {
+          console.error(`Failed to load SuggestionTypeValues for ${colKey} (id=${id})`, err);
+          setSuggestionTypeValues((prev) => ({
+            ...prev,
+            [colKey]: [],
+          }));
 
-        setActiveOptionsList([]);
-      }
-    );
+          setActiveOptionsList([]);
+        }
+      );
+    }
   };
 
   // handle when a cell is activated for editing by showing the appropriate overlay based on the column config for that cell
   const onCellEditorActivated = (cell: Item) => {
+    if (!backendAvailable) {
+      showDowntimeMessage();
+      return;
+    }
+
     const [col, row] = cell;
     const colKey = columns[col].id as string;
 
@@ -428,7 +451,7 @@ export default function App() {
 
   // handle saving an edit from the multi select modal by updating the data and filtered data states, closing the modal, and recording the edit interaction
   const handleSaveMulti = () => {
-    if (editingCell) {
+    if (editingCell && backendAvailable) {
       const { row, colKey } = editingCell;
       const updatedData = [...data];
       const actualRowIndex = data.indexOf(filteredData[row]);
@@ -451,7 +474,7 @@ export default function App() {
 
   // handle saving an edit from the free text modal by updating the data and filtered data states, closing the modal, and recording the edit interaction
   const handleSaveText = () => {
-    if (editingCell) {
+    if (editingCell && backendAvailable) {
       const { row, colKey } = editingCell;
       const updatedData = [...data];
       const actualRowIndex = data.indexOf(filteredData[row]);
@@ -473,7 +496,7 @@ export default function App() {
 
   // handle saving an edit from the dropdown modal by updating the data and filtered data states, closing the modal, and recording the edit interaction
   const handleSaveDropdown = () => {
-    if (editingCell) {
+    if (editingCell && backendAvailable) {
       const { row, colKey } = editingCell;
       const updatedData = [...data];
       const actualRowIndex = data.indexOf(filteredData[row]);
@@ -495,7 +518,7 @@ export default function App() {
 
   // handle saving an edit from the dropdown + free text modal by updating the data and filtered data states, closing the modal, and recording the edit interaction
   const handleSaveDropdownFreeText = () => {
-    if (editingCell) {
+    if (editingCell && backendAvailable) {
       const { row, colKey } = editingCell;
       const updatedData = [...data];
       const actualRowIndex = data.indexOf(filteredData[row]);
@@ -521,6 +544,11 @@ export default function App() {
 
   // old handle cell edit function for free text edits before modals (not currently used)
   const onCellEdited = (cell: Item, newValue: EditableGridCell | BubbleCell) => {
+    if (!backendAvailable) {
+      showDowntimeMessage();
+      return;
+    }
+
     const [col, row] = cell;
     const colKey = columns[col].id as string;
     const colType = columnSchema[colKey].type || 'string';
@@ -559,7 +587,7 @@ export default function App() {
   const onGridSelectionChange = (newSelection: GridSelection) => {
     const cell = newSelection.current?.cell;
 
-    if (cell) {
+    if (cell && backendAvailable) {
       const [col, row] = cell;
       const colKey = columns[col].id as string;
       const rowObj = filteredData[row];
@@ -576,6 +604,11 @@ export default function App() {
 
   // handle deleting a row by showing the delete confirmation footer if a row is selected or a cell is selected, and showing an alert if no row or cell is selected
   const handleDeleteRow = () => {
+    if (!backendAvailable) {
+      showDowntimeMessage();
+      return;
+    }
+
     let selectedRows: ColumnData[] = [];
 
     if (gridSelection.rows.length > 0) {
@@ -606,6 +639,11 @@ export default function App() {
 
   // handle confirming the deletion of a row by updating the data and filtered data states to remove the deleted row, resetting the grid selection, recording the delete interaction with the provided comment, and showing a snackbar confirming the contribution
   const handleDeleteRowConfirm = () => {
+    if (!backendAvailable) {
+      showDowntimeMessage();
+      return;
+    }
+
     if (!isDeleteCommentFilled) {
       return;
     }
@@ -645,6 +683,11 @@ export default function App() {
 
   // handle confirming the addition of a row by validating that all required fields are filled, sending the add row interaction data to the backend to be added to the database and getting back the new row id, updating the data and filtered data states to include the new row, resetting the new row form, and showing a snackbar confirming the contribution
   const handleAddRowConfirm = () => {
+    if (!backendAvailable) {
+      showDowntimeMessage();
+      return;
+    }
+
     if (!allFieldsFilled) {
       return;
     }
@@ -711,6 +754,14 @@ export default function App() {
     }
   };
 
+  const showDowntimeMessage = () => {
+    setFlashDowntimeMessage(true);
+
+    setTimeout(() => {
+      setFlashDowntimeMessage(false);
+    }, 600);
+  };
+
   // get the label for the current dataset to show in the UI
   const datasetLabel = datasetLabels[dataset];
 
@@ -718,6 +769,9 @@ export default function App() {
   return (
     <div className="App" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <ActionButtons
+        backendAvailable={backendAvailable}
+        flashDowntimeMessage={flashDowntimeMessage}
+        showDowntimeMessage={showDowntimeMessage}
         datasetLabel={datasetLabel}
         handleHomePage={() => handleHomePage(base)}
         handleData={() => handleData(base, dataset)}
@@ -831,7 +885,7 @@ export default function App() {
         </Alert>
       </Snackbar>
 
-      {isAddingRow && (
+      {isAddingRow && backendAvailable && (
         <AddRowFooter
           columnKeys={Object.keys(columnSchema)}
           newRowData={newRowData}
@@ -844,7 +898,7 @@ export default function App() {
         />
       )}
 
-      {isDeletingRow && (
+      {isDeletingRow && backendAvailable && (
         <DeleteRowFooter
           comment={deleteComment}
           setComment={setDeleteComment}

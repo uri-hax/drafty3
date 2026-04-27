@@ -15,16 +15,16 @@ import (
 	esession "github.com/labstack/echo-contrib/session"
 )
 
+// HealthCheckhandler returns a bollean
+func HealthCheck(c echo.Context) error {
+	return c.JSON(http.StatusOK, map[string]string{"status": "healthy"})
+}
+
 // SUGGESTIONS HANDLER
 
 // SuggestionsHandler holds DB connection
 type SuggestionsHandler struct {
 	DB *gorm.DB
-}
-
-// HealthCheckhandler returns a bollean
-func HealthCheck(c echo.Context) error {
-	return c.JSON(http.StatusOK, map[string]string{"status": "healthy"})
 }
 
 // NewSuggestionsHandler returns a new SuggestionsHandler for the given DB
