@@ -1,19 +1,3 @@
-// src/components/DataGridWrapper.tsx
-
-/*
-  A wrapper around the DataEditor from @glideapps/glide-data-grid that:
-  - Receives dynamically generated columns and filtered data rows.
-  - Maps cell data to either Text or Bubble cells based on column types from columnSchema.
-  - Handles edits and selections through parent callbacks.
-  - Data-agnostic: No column assumptions.
-
-  Requires:
-  - columns, filteredData, columnSchema: to know how to render each cell
-  - onCellEdited, onCellEditorActivated, onGridSelectionChange: parent event handlers
-  - gridSelection: current selection state
-  - gridWidth: width of the grid in pixels
-*/
-
 import React from 'react';
 import {
   DataEditor,
@@ -25,8 +9,9 @@ import {
   type BubbleCell,
   type GridSelection,
 } from "@glideapps/glide-data-grid";
-import type { ColumnData } from '../interfaces/ColumnData';
+import type { ColumnConfig, ColumnData } from '../interfaces/ColumnData';
 
+// styling for the grid
 const draftyOld = {
   //bgCell: "#0f172a",
   //bgCellHeader: "#020617",
@@ -52,7 +37,7 @@ const draftyOld = {
   fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
 };
 
-
+// interface for data grid wrapper props
 interface DataGridWrapperProps {
   columns: GridColumn[];
   filteredData: ColumnData[];
@@ -61,13 +46,14 @@ interface DataGridWrapperProps {
   gridSelection?: GridSelection;
   onGridSelectionChange?: (newSelection: GridSelection) => void;
   gridWidth: number;
-  columnSchema: Record<string, string>;
+  columnSchema: Record<string, ColumnConfig>;
 
   onHeaderSort?: (colKey: string) => void;
   sortColKey?: string | null;
   sortDir?: "asc" | "desc";
 }
 
+// component for the data grid - wraps the glide data editor and handles rendering cells based on column schema and applying custom styles
 const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
   columns,
   filteredData,
@@ -82,38 +68,41 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
   sortColKey = null,
   sortDir = "asc",
 }) => {
-  const editable = Boolean(onCellEdited);
-
+  // add sort indicators to column headers if sorting is applied and return the columns with the title and indicators for sorting 
   const columnsWithSort = columns.map((c) => {
     const key = c.id as string;
     const indicator = sortColKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
     return { ...c, title: `${c.title}${indicator}` };
   });
 
+  // function to get the data for a given cell - handles rendering based on column schema and applies custom styling
   const getData = ([col, row]: Item): GridCell => {
     const colKey = columnsWithSort[col].id as string;
     const cellData = filteredData[row]?.[colKey];
-    const colType = columnSchema[colKey] || 'string';
+    const colType = columnSchema[colKey].type || 'string';
 
+    // if the column is a string array, render as a bubble cell 
     if (colType === 'string[]') {
       const bubbleData = Array.isArray(cellData) ? cellData as string[] : [];
       return {
         kind: GridCellKind.Bubble,
         data: bubbleData,
-        allowOverlay: editable,
+        allowOverlay: false,
       };
     }
 
+    // default rendering as text cell for string and other types and handle unexpected data
     const textData = (cellData !== undefined && cellData !== null) ? String(cellData) : "";
     
     return {
       kind: GridCellKind.Text,
       data: textData,
       displayData: textData,
-      allowOverlay: editable,
+      allowOverlay: false,
     };
   };
 
+  // render the data editor with the appropriate props and custom styling with zebra striping and handle header clicks for sorting 
   return (
     <DataEditor
       columns={columnsWithSort}
@@ -151,4 +140,5 @@ const DataGridWrapper: React.FC<DataGridWrapperProps> = ({
   );
 };
 
+// export the component
 export default DataGridWrapper;

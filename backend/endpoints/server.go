@@ -2,38 +2,25 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
+	"path/filepath"
 
+	"github.com/gorilla/sessions"
+	esession "github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"drafty3/endpoints/handler"
-
-	"github.com/gorilla/sessions"
-	esession "github.com/labstack/echo-contrib/session"
 )
 
-func main() {
-	// read DB path from env or fall back to default
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "../db/drafty_new_gorm.db"
-	}
+// students test db and routes currently disabled
 
-	// open DB connection with gorm
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
-	if err != nil {
-		log.Fatal("failed to connect database:", err)
-	}
-
-	// create echo instance
-	e := echo.New()
-
-	// use session middleware
-	e.Use(esession.Middleware(sessions.NewCookieStore([]byte("temp_secret_key"))))
-
-	// create handlers with db
+// create all api routes for main db and handlers for those routes
+func registerRoutes(api *echo.Group, db *gorm.DB) {
+	// create handlers with dataset db
 	suggestionsHandler := handler.NewSuggestionsHandler(db)
 	aliasHandler := handler.NewAliasHandler(db)
 	clickHandler := handler.NewClickHandler(db)
@@ -48,7 +35,6 @@ func main() {
 	databaitTweetHandler := handler.NewDatabaitTweetHandler(db)
 	editHandler := handler.NewEditHandler(db)
 	interactionTypeHandler := handler.NewInteractionTypeHandler(db)
-	profileHandler := handler.NewProfileHandler(db)
 	removeUserDataHandler := handler.NewRemoveUserDataHandler(db)
 	roleHandler := handler.NewRoleHandler(db)
 	searchTypeHandler := handler.NewSearchTypeHandler(db)
@@ -73,15 +59,13 @@ func main() {
 	searchGoogleHandler := handler.NewSearchGoogleHandler(db)
 	viewChangeHandler := handler.NewViewChangeHandler(db)
 	visitHandler := handler.NewVisitHandler(db)
-	sessionsHandler := handler.NewSessionsHandler(db)
 
-	// set up /api routes
-	api := e.Group("/api")
+	// Health
+	api.GET("/health", handler.HealthCheck)
 
-	// Suggestions (at the top, with PUT)
+	// Suggestions
 	api.GET("/suggestions/:id", suggestionsHandler.GetSuggestion)
 	api.POST("/suggestions", suggestionsHandler.CreateSuggestion)
-	api.PUT("/suggestions/:id", suggestionsHandler.UpdateSuggestion)
 
 	// Alias
 	api.GET("/alias/:id", aliasHandler.GetAlias)
@@ -135,10 +119,6 @@ func main() {
 	api.GET("/interactiontypes/:id", interactionTypeHandler.GetInteractionType)
 	api.POST("/interactiontypes", interactionTypeHandler.CreateInteractionType)
 
-	// Profile
-	api.GET("/profiles/:id", profileHandler.GetProfile)
-	api.POST("/profiles", profileHandler.CreateProfile)
-
 	// RemoveUserData
 	api.GET("/removeuserdata/:id", removeUserDataHandler.GetRemoveUserData)
 	api.POST("/removeuserdata", removeUserDataHandler.CreateRemoveUserData)
@@ -156,7 +136,7 @@ func main() {
 	api.POST("/selectranges", selectRangeHandler.CreateSelectRange)
 
 	// SuggestionType
-	api.GET("/suggestiontypes/:id", suggestionTypeHandler.GetSuggestionType)
+	api.GET("/suggestiontypes/:name", suggestionTypeHandler.GetSuggestionType)
 	api.POST("/suggestiontypes", suggestionTypeHandler.CreateSuggestionType)
 
 	// CopyColumn
@@ -234,12 +214,98 @@ func main() {
 	// Visit
 	api.GET("/visits/:id", visitHandler.GetVisit)
 	api.POST("/visits", visitHandler.CreateVisit)
+}
 
-	// Sessions
+// create all api routes for users db and handlers for those routes
+func registerUserRoutes(api *echo.Group, usersDB *gorm.DB) {
+	profileHandler := handler.NewProfileHandler(usersDB)
+	sessionsHandler := handler.NewSessionsHandler(usersDB)
+
+	api.GET("/profiles/:id", profileHandler.GetProfile)
+	api.POST("/profiles", profileHandler.CreateProfile)
+
 	api.GET("/sessions/:id", sessionsHandler.GetSessions)
 	api.POST("/sessions", sessionsHandler.CreateSessions)
+}
 
-	// start server
+// main function to set up the echo server and connect to dbs
+func main() {
+	// create echo instance
+	e := echo.New()
+
+	// set up session middleware with cookie store and a temporary secret key
+	e.Use(esession.Middleware(sessions.NewCookieStore([]byte("temp_secret_key"))))
+
+	// add testing environment and live site CORS policy
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{
+			"http://localhost:4321",
+			"https://uri-hax.github.io",
+		},
+		AllowMethods: []string{
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodDelete,
+			http.MethodOptions,
+		},
+		AllowHeaders: []string{
+			echo.HeaderOrigin,
+			echo.HeaderContentType,
+			echo.HeaderAccept,
+		},
+		AllowCredentials: true,
+	}))
+
+	// get db paths from environment variables or use defaults
+	dbRoot := os.Getenv("DB_ROOT")
+	if dbRoot == "" {
+		dbRoot = "../db"
+	}
+
+	// get db paths from environment variables or use defaults
+	csprofsPath := os.Getenv("DB_PATH_CSPROFS")
+	if csprofsPath == "" {
+		csprofsPath = filepath.Join(dbRoot, "drafty_new_gorm.db")
+	}
+
+	// studentsPath := os.Getenv("DB_PATH_STUDENTS")
+	// if studentsPath == "" {
+	// 	studentsPath = filepath.Join(dbRoot, "students_gorm.db")
+	// }
+
+	// get db paths from environment variables or use defaults
+	usersPath := os.Getenv("DB_PATH_USERS")
+	if usersPath == "" {
+		usersPath = filepath.Join(dbRoot, "users_gorm.db")
+	}
+
+	// connect to db using gorm
+	dbCsprofs, err := gorm.Open(sqlite.Open(csprofsPath), &gorm.Config{})
+	if err != nil {
+		log.Fatal("failed to connect csprofs db:", err)
+	}
+
+	// dbStudents, err := gorm.Open(sqlite.Open(studentsPath), &gorm.Config{})
+	// if err != nil {
+	// 	log.Fatal("failed to connect students db:", err)
+	// }
+
+	// connect to users db using gorm
+	dbUsers, err := gorm.Open(sqlite.Open(usersPath), &gorm.Config{})
+	if err != nil {
+		log.Fatal("failed to connect users db:", err)
+	}
+
+	// create api group
+	api := e.Group("/api")
+
+	// register routes for each dataset and users
+	registerRoutes(api.Group("/csprofs"), dbCsprofs)
+	//registerRoutes(api.Group("/students"), dbStudents)
+	registerUserRoutes(api.Group("/users"), dbUsers)
+
+	// start the server and log failures
 	log.Println("Server running on http://localhost:8081")
 	e.Logger.Fatal(e.Start(":8081"))
 }

@@ -2,7 +2,7 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 
-const basePath = process.env.PUBLIC_BASE_PATH || '/drafty3';
+const basePath = process.env.PUBLIC_BASE_PATH || '/drafty3/';
 const localDevAPI = process.env.PUBLIC_LOCAL_DEV_API || 'http://localhost:8081';
 
 export default defineConfig({

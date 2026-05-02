@@ -3,13 +3,16 @@ import type { GridColumn } from "@glideapps/glide-data-grid";
 import type { ColumnData } from '../interfaces/ColumnData';
 import { generateOptionsLists, generateColumnWidths } from './constants';
 import yaml from 'js-yaml'; 
+import type { EditType, ColumnConfig } from '../interfaces/ColumnData';
+
+type YamlSchema = Record<string, ColumnConfig>;
 
 /*
-  Attempt to fetch and parse a YAML schema file that defines the column types.
+  Attempt to fetch and parse a YAML schema file that defines the column types, edit types, and widths.
   If the file is not provided or fails to load, return an empty schema.
 */
 
-const fetchYamlSchema = async (yamlFilePath?: string): Promise<Record<string, string>> => {
+const fetchYamlSchema = async (yamlFilePath?: string): Promise<YamlSchema> => {
   if (!yamlFilePath) {
     return {}; 
   }
@@ -30,15 +33,23 @@ const fetchYamlSchema = async (yamlFilePath?: string): Promise<Record<string, st
       return {};
     }
 
-    const columnSchema: Record<string, string> = {};
+    const columnSchema: YamlSchema = {};
 
     for (const [key, value] of Object.entries(schema)) {
-      if (typeof value === 'string') {
-        columnSchema[key] = value;
+      if (typeof value === 'object' && value !== null && 'type' in value && 'edit' in value) {
+        if (!['string', 'string[]'].includes(value.type) && !['free_text', 'dropdown', 'dropdown_free_text', 'multi_select'].includes(value.edit)) {
+          console.log(`Invalid type or edit value for column "${key}" in YAML schema.`);
+        }
+        else {
+          columnSchema[key] = value as ColumnConfig;
+        }
       } 
       else {
-        console.warn(`Non-string type for column "${key}" in schema. Defaulting to 'string'.`);
-        columnSchema[key] = 'string';
+        console.warn(`Defaulting to 'string' and 'free_text' for column "${key}".`);
+        columnSchema[key] = {
+          type: 'string',
+          edit: 'free_text',
+        };
       }
     }
 
@@ -63,14 +74,13 @@ const fetchYamlSchema = async (yamlFilePath?: string): Promise<Record<string, st
 
 export const fetchCsvData = async (
   gridWidth: number,
-  customWidths: Record<string, string> = {},
   csvFilePath: string, 
   yamlSchemaFilePath?: string
 ): Promise<{ 
   gridColumns: GridColumn[]; 
   parsedData: ColumnData[]; 
   optionsLists: Record<string, string[]>; 
-  columnSchema: Record<string, string>; 
+  columnSchema: YamlSchema; 
 }> => {
   try {
     const columnSchema = await fetchYamlSchema(yamlSchemaFilePath);
@@ -96,16 +106,29 @@ export const fetchCsvData = async (
             const processedRow: ColumnData = {};
 
             for (const [key, value] of Object.entries(row)) {
-              const colType = columnSchema[key] || 'string'; 
+              const colType = columnSchema[key]?.type || 'string';
               let processedValue: string | string[] = value || "";
 
               if (typeof processedValue === 'string') {
-                if (colType === 'string[]') {
-                  processedValue = processedValue.includes(",")
-                    ? processedValue.split(",").map((s) => s.trim())
-                    : [processedValue.trim()];
-                } 
-                else {
+                if (colType === "string[]") {
+                  const trimmed = processedValue.trim();
+
+                  try {
+                    const parsed = JSON.parse(trimmed);
+
+                    if (Array.isArray(parsed)) {
+                      processedValue = parsed.map((item) => String(item).trim());
+                    } 
+                    else {
+                      processedValue = [trimmed];
+                    }
+                  } 
+                  catch {
+                    processedValue = trimmed.includes(",")
+                      ? trimmed.split(",").map((s) => s.trim())
+                      : [trimmed];
+                  }
+                } else {
                   processedValue = processedValue.trim();
                 }
               }
@@ -118,6 +141,24 @@ export const fetchCsvData = async (
 
           const optionsLists = generateOptionsLists(parsedData);
           const columnKeys = Object.keys(parsedData[0] || {}).filter((key) => key !== 'idUniqueID');
+
+          for (const key of columnKeys) {
+            if (!columnSchema[key]) {
+              columnSchema[key] = { type: "string" };
+            }
+          }
+
+          const customWidths: Record<string, string> = {};
+          for (const key of columnKeys) {
+            if (columnSchema[key]?.width) {
+              if (!/^\d+%$/.test(columnSchema[key].width)) {
+                console.log(`Invalid width format for column "${key}".`);
+              } 
+              else {
+                customWidths[key] = columnSchema[key].width;
+              }
+            }
+          }
           const columnWidths = generateColumnWidths(columnKeys, customWidths);
 
           const gridColumns: GridColumn[] = columnKeys.map((key) => ({
@@ -126,7 +167,7 @@ export const fetchCsvData = async (
             width: parseFloat(columnWidths[key].replace('%', '')) * gridWidth / 100,
           }));
 
-          resolve({ gridColumns, parsedData, optionsLists, columnSchema });
+          resolve({ gridColumns, parsedData, optionsLists, columnSchema});
         },
 
         skipEmptyLines: true,

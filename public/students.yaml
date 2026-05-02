@@ -1,0 +1,14 @@
+Name:
+  type: string
+  width: "40%"
+  edit: free_text
+
+Major:
+  type: string
+  width: "40%"
+  edit: dropdown_free_text
+
+GradYear:
+  type: string
+  width: "18%"
+  edit: dropdown

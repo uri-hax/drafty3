@@ -7,18 +7,23 @@ import type { ColumnData } from '../interfaces/ColumnData';
 import useWindowWidth from '../hooks/useWindow';
 import ActionButtons from './ActionButtons';
 import DataGridWrapper from './DataGridWrapper';
-
-const customWidths: Record<string, string> = {
-  When: "10%",
-  EditedBy: "10%",
-  Action: "10%",
-  WhoWasEdited: "20%",
-  Column: "10%",
-  ChangedFrom: "20%",
-  ChangedTo: "20%"
-};
+import type { ColumnConfig } from '../interfaces/ColumnData';
+import { editFiles, datasetLabels } from "../config/AppConfig";
+import { 
+  handleHomePage,
+  handleData,
+  handleEditHistory
+} from "../utils/gridHelper";
 
 export default function App() {
+  // get the dataset we're in from the url
+  const base = import.meta.env.BASE_URL;
+  const dataset = window.location.pathname
+    .replace(base, "")
+    .split("/")
+    .filter(Boolean)[0];
+
+  // create portal div if it doesn't exist to render modals into
   useEffect(() => {
     const portalDiv = document.getElementById('portal');
 
@@ -34,16 +39,16 @@ export default function App() {
   const [columns, setColumns] = useState<GridColumn[]>([]);
   const [data, setData] = useState<ColumnData[]>([]);
   const [filteredData, setFilteredData] = useState<ColumnData[]>([]);
-  const [columnSchema, setColumnSchema] = useState<Record<string, string>>({});
+  const [columnSchema, setColumnSchema] = useState<Record<string, ColumnConfig>>({});
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    // gather data from csv and yaml, and apply any filters from the url
     const fetchData = async () => {
       try {
         const { gridColumns, parsedData, columnSchema } = await fetchCsvData(
           gridWidth, 
-          customWidths,
-          '/drafty3/edit-history.csv',
+          `${base}${editFiles[dataset]}`,
         ); 
 
         setColumns(gridColumns);
@@ -72,6 +77,7 @@ export default function App() {
     fetchData();
   }, [gridWidth]);
  
+  // re-apply filters and sorting whenever relevant state changes
   useEffect(() => {
     if (columns.length === 0 || data.length === 0) return;
 
@@ -97,6 +103,7 @@ export default function App() {
     setFilteredData(filtered);
   }, [columnFilters, data, columns]);
 
+  // update url when filters change
   useEffect(() => {
     if (columns.length === 0) return;
 
@@ -111,24 +118,17 @@ export default function App() {
     window.history.replaceState(null, '', '?' + params.toString());
   }, [columnFilters, columns]);
 
-  const handleHomePage = () => {
-    window.location.href = "/drafty3/";
-  }
+  // get the label for the current dataset to show in the UI
+  const datasetLabel = datasetLabels[dataset];
 
-  const handleData = () => {
-    window.location.href = "/drafty3/csprofs";
-  }
-
-  const handleEditHistory = () => {
-    window.location.href = "/drafty3/edit-history";
-  };
-
-  return (
+  // render the app with the action buttons at the top and the data grid taking up the rest of the space
+  return ( 
     <div className="App" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <ActionButtons
-        handleHomePage={handleHomePage}
-        handleData={handleData}
-        handleEditHistory={handleEditHistory}
+        handleHomePage={() => handleHomePage(base)}
+        handleData={() => handleData(base, dataset)}
+        handleEditHistory={() => handleEditHistory(base, dataset)}
+        datasetLabel={datasetLabel}
       />
 
       <div className="grid-container" style={{ flexGrow: 1 }}>

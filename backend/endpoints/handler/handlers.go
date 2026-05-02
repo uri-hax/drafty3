@@ -1,17 +1,24 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 
-	"drafty3/go_migration/model"
+	"drafty3/go_migration/data_model"
+	"drafty3/go_migration/user_model"
 
-	esession "github.com/labstack/echo-contrib/session"
 	"github.com/gorilla/sessions"
+	esession "github.com/labstack/echo-contrib/session"
 )
+
+// HealthCheckhandler returns a bollean
+func HealthCheck(c echo.Context) error {
+	return c.JSON(http.StatusOK, map[string]string{"status": "healthy"})
+}
 
 // SUGGESTIONS HANDLER
 
@@ -31,7 +38,7 @@ func (h *SuggestionsHandler) GetSuggestion(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var suggestion model.Suggestions
+	var suggestion data_model.Suggestions
 	if err := h.DB.First(&suggestion, "idSuggestion = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "Suggestion not found",
@@ -46,7 +53,7 @@ func (h *SuggestionsHandler) GetSuggestion(c echo.Context) error {
 // CreateSuggestion handles POST /api/suggestions
 func (h *SuggestionsHandler) CreateSuggestion(c echo.Context) error {
 	// bind request JSON to Suggestions struct
-	var suggestion model.Suggestions
+	var suggestion data_model.Suggestions
 	if err := c.Bind(&suggestion); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -64,40 +71,6 @@ func (h *SuggestionsHandler) CreateSuggestion(c echo.Context) error {
 
 	// return created row
 	return c.JSON(http.StatusCreated, suggestion)
-}
-
-// UpdateSuggestion handles PUT /api/suggestions/:id
-func (h *SuggestionsHandler) UpdateSuggestion(c echo.Context) error {
-	// get existing row from id parameter in URL
-	id := c.Param("id")
-
-	// try to find the row and error if can't
-	var existing model.Suggestions
-	if err := h.DB.First(&existing, "idSuggestion = ?", id).Error; err != nil {
-		return c.JSON(http.StatusNotFound, echo.Map{
-			"error": "Suggestion not found",
-			"id":    id,
-		})
-	}
-
-	// bind request JSON to existing which mutates in place
-	if err := c.Bind(&existing); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":  "invalid request body",
-			"detail": err.Error(),
-		})
-	}
-
-	// save full struct back to DB
-	if err := h.DB.Save(&existing).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to update suggestion",
-			"detail": err.Error(),
-		})
-	}
-
-	// return updated row
-	return c.JSON(http.StatusOK, existing)
 }
 
 // ALIAS HANDLER
@@ -118,7 +91,7 @@ func (h *AliasHandler) GetAlias(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var alias model.Alias
+	var alias data_model.Alias
 	if err := h.DB.First(&alias, "idAlias = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "Alias not found",
@@ -133,7 +106,7 @@ func (h *AliasHandler) GetAlias(c echo.Context) error {
 // CreateAlias handles POST /api/alias
 func (h *AliasHandler) CreateAlias(c echo.Context) error {
 	// bind request JSON to Alias struct
-	var alias model.Alias
+	var alias data_model.Alias
 	if err := c.Bind(&alias); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -171,7 +144,7 @@ func (h *ClickHandler) GetClick(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var click model.Click
+	var click data_model.Click
 	if err := h.DB.First(&click, "idInteraction = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "Click not found",
@@ -186,32 +159,20 @@ func (h *ClickHandler) GetClick(c echo.Context) error {
 // struct of what we expect from front end with info to make rows in Interaction and Click
 type createClickPayload struct {
 	IDInteractionType int64   `json:"IDInteractionType"`
-	IDSuggestion      int64   `json:"IDSuggestion"`
+	IDSuggestionType  int64   `json:"IDSuggestionType"`
+	IDUniqueID        int64   `json:"IDUniqueID"`
 	RowValues         *string `json:"RowValues"`
 }
 
 // CreateClick handles POST /api/clicks
 func (h *ClickHandler) CreateClick(c echo.Context) error {
 	// read the cookie based session
-	sess, err := esession.Get("session", c)
+	sessionID, err := getCookieSessionID(c)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to read cookie session",
+		return c.JSON(http.StatusUnauthorized, echo.Map{
+			"error":  "failed to get active session",
 			"detail": err.Error(),
 		})
-	}
-
-	// extract session_id from cookie from whatever form it's in
-	var sessionID int64
-	if raw, ok := sess.Values["session_id"]; ok {
-		switch v := raw.(type) {
-		case int64:
-			sessionID = v
-		case int:
-			sessionID = int64(v)
-		case float64:
-			sessionID = int64(v)
-		}
 	}
 
 	// bind request JSON filled with info for Interaction and Click
@@ -223,26 +184,63 @@ func (h *ClickHandler) CreateClick(c echo.Context) error {
 		})
 	}
 
-	// create Interaction using IDSession from cookie
-	interaction := model.Interaction{
-		IDSession:         sessionID,
-		IDInteractionType: payload.IDInteractionType,
-		// Timestamp is default
-	}
-	if err := h.DB.Create(&interaction).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create interaction",
-			"detail": err.Error(),
-		})
-	}
+	// set up data models
+	var interaction data_model.Interaction
+	var click data_model.Click
 
-	// create Click linked to this Interaction
-	click := model.Click{
-		IDInteraction: interaction.IDInteraction,
-		IDSuggestion:  payload.IDSuggestion,
-		RowValues:     payload.RowValues,
-	}
-	if err := h.DB.Create(&click).Error; err != nil {
+	err = h.DB.Transaction(func(tx *gorm.DB) error {
+		// find matching suggestions
+		var suggestions []data_model.Suggestions
+		if err := tx.
+			Where("idSuggestionType = ? AND idUniqueID = ?", payload.IDSuggestionType, payload.IDUniqueID).
+			Find(&suggestions).Error; err != nil {
+			return err
+		}
+
+		// find the active suggestion
+		var activeSuggestionID int64
+		for _, s := range suggestions {
+			if s.Active != nil && *s.Active == 1 {
+				activeSuggestionID = s.IDSuggestion
+				break
+			}
+		}
+
+		// make sure we got an active suggestion
+		if activeSuggestionID == 0 {
+			return echo.NewHTTPError(http.StatusNotFound, "no active suggestion found")
+		}
+
+		// create Interaction using IDSession from cookie
+		interaction = data_model.Interaction{
+			IDSession:         sessionID,
+			IDInteractionType: payload.IDInteractionType,
+		}
+		if err := tx.Create(&interaction).Error; err != nil {
+			return err
+		}
+
+		// create Click linked to this Interaction
+		click = data_model.Click{
+			IDInteraction: interaction.IDInteraction,
+			IDSuggestion:  activeSuggestionID,
+			RowValues:     payload.RowValues,
+		}
+		if err := tx.Create(&click).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	// error handling for the transaction
+	if err != nil {
+		if httpErr, ok := err.(*echo.HTTPError); ok {
+			return c.JSON(httpErr.Code, echo.Map{
+				"error": httpErr.Message,
+			})
+		}
+
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error":  "failed to create click",
 			"detail": err.Error(),
@@ -271,7 +269,7 @@ func (h *DataTypeHandler) GetDataType(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var dt model.DataType
+	var dt data_model.DataType
 	if err := h.DB.First(&dt, "idDataType = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "DataType not found",
@@ -286,7 +284,7 @@ func (h *DataTypeHandler) GetDataType(c echo.Context) error {
 // CreateDataType handles POST /api/datatypes
 func (h *DataTypeHandler) CreateDataType(c echo.Context) error {
 	// bind request JSON to DataType struct
-	var dt model.DataType
+	var dt data_model.DataType
 	if err := c.Bind(&dt); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -324,7 +322,7 @@ func (h *DatabaitCreateTypeHandler) GetDatabaitCreateType(c echo.Context) error 
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var dct model.DatabaitCreateType
+	var dct data_model.DatabaitCreateType
 	if err := h.DB.First(&dct, "idDatabaitCreateType = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "DatabaitCreateType not found",
@@ -339,7 +337,7 @@ func (h *DatabaitCreateTypeHandler) GetDatabaitCreateType(c echo.Context) error 
 // CreateDatabaitCreateType handles POST /api/databaitcreatetypes
 func (h *DatabaitCreateTypeHandler) CreateDatabaitCreateType(c echo.Context) error {
 	// bind request JSON to DatabaitCreateType struct
-	var dct model.DatabaitCreateType
+	var dct data_model.DatabaitCreateType
 	if err := c.Bind(&dct); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -377,7 +375,7 @@ func (h *DatabaitNextActionHandler) GetDatabaitNextAction(c echo.Context) error 
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var dna model.DatabaitNextAction
+	var dna data_model.DatabaitNextAction
 	if err := h.DB.First(&dna, "idDatabaitNextAction = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "DatabaitNextAction not found",
@@ -392,7 +390,7 @@ func (h *DatabaitNextActionHandler) GetDatabaitNextAction(c echo.Context) error 
 // CreateDatabaitNextAction handles POST /api/databaitnextactions
 func (h *DatabaitNextActionHandler) CreateDatabaitNextAction(c echo.Context) error {
 	// bind request JSON to DatabaitNextAction struct
-	var dna model.DatabaitNextAction
+	var dna data_model.DatabaitNextAction
 	if err := c.Bind(&dna); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -430,7 +428,7 @@ func (h *DatabaitTemplateTypeHandler) GetDatabaitTemplateType(c echo.Context) er
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var dtt model.DatabaitTemplateType
+	var dtt data_model.DatabaitTemplateType
 	if err := h.DB.First(&dtt, "idDatabaitTemplateType = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "DatabaitTemplateType not found",
@@ -445,7 +443,7 @@ func (h *DatabaitTemplateTypeHandler) GetDatabaitTemplateType(c echo.Context) er
 // CreateDatabaitTemplateType handles POST /api/databaittemplatetypes
 func (h *DatabaitTemplateTypeHandler) CreateDatabaitTemplateType(c echo.Context) error {
 	// bind request JSON to DatabaitTemplateType struct
-	var dtt model.DatabaitTemplateType
+	var dtt data_model.DatabaitTemplateType
 	if err := c.Bind(&dtt); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -483,7 +481,7 @@ func (h *DoubleClickHandler) GetDoubleClick(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var dc model.DoubleClick
+	var dc data_model.DoubleClick
 	if err := h.DB.First(&dc, "idInteraction = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "DoubleClick not found",
@@ -498,7 +496,7 @@ func (h *DoubleClickHandler) GetDoubleClick(c echo.Context) error {
 // CreateDoubleClick handles POST /api/doubleclicks
 func (h *DoubleClickHandler) CreateDoubleClick(c echo.Context) error {
 	// bind request JSON to DoubleClick struct
-	var dc model.DoubleClick
+	var dc data_model.DoubleClick
 	if err := c.Bind(&dc); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -536,7 +534,7 @@ func (h *EditSuggestionHandler) GetEditSuggestion(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var es model.EditSuggestion
+	var es data_model.EditSuggestion
 	if err := h.DB.First(&es, "idEdit = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "EditSuggestion not found",
@@ -551,7 +549,7 @@ func (h *EditSuggestionHandler) GetEditSuggestion(c echo.Context) error {
 // CreateEditSuggestion handles POST /api/editsuggestion
 func (h *EditSuggestionHandler) CreateEditSuggestion(c echo.Context) error {
 	// bind request JSON to EditSuggestion struct
-	var es model.EditSuggestion
+	var es data_model.EditSuggestion
 	if err := c.Bind(&es); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -571,7 +569,6 @@ func (h *EditSuggestionHandler) CreateEditSuggestion(c echo.Context) error {
 	return c.JSON(http.StatusCreated, es)
 }
 
-
 // ENTRYTYPE HANDLER
 
 // EntryTypeHandler holds DB connection
@@ -590,7 +587,7 @@ func (h *EntryTypeHandler) GetEntryType(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var et model.EntryType
+	var et data_model.EntryType
 	if err := h.DB.First(&et, "idEntryType = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "EntryType not found",
@@ -605,7 +602,7 @@ func (h *EntryTypeHandler) GetEntryType(c echo.Context) error {
 // CreateEntryType handles POST /api/entrytypes
 func (h *EntryTypeHandler) CreateEntryType(c echo.Context) error {
 	// bind request JSON to EntryType struct
-	var et model.EntryType
+	var et data_model.EntryType
 	if err := c.Bind(&et); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -643,7 +640,7 @@ func (h *InteractionHandler) GetInteraction(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var interaction model.Interaction
+	var interaction data_model.Interaction
 	if err := h.DB.First(&interaction, "idInteraction = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "Interaction not found",
@@ -658,7 +655,7 @@ func (h *InteractionHandler) GetInteraction(c echo.Context) error {
 // CreateInteraction handles POST /api/interactions
 func (h *InteractionHandler) CreateInteraction(c echo.Context) error {
 	// bind request JSON to Interaction struct
-	var interaction model.Interaction
+	var interaction data_model.Interaction
 	if err := c.Bind(&interaction); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -696,7 +693,7 @@ func (h *DatabaitTweetHandler) GetDatabaitTweet(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var dt model.DatabaitTweet
+	var dt data_model.DatabaitTweet
 	if err := h.DB.First(&dt, "idDatabaitTweet = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "DatabaitTweet not found",
@@ -711,7 +708,7 @@ func (h *DatabaitTweetHandler) GetDatabaitTweet(c echo.Context) error {
 // CreateDatabaitTweet handles POST /api/databaittweets
 func (h *DatabaitTweetHandler) CreateDatabaitTweet(c echo.Context) error {
 	// bind request JSON to DatabaitTweet struct
-	var dt model.DatabaitTweet
+	var dt data_model.DatabaitTweet
 	if err := c.Bind(&dt); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -749,7 +746,7 @@ func (h *EditHandler) GetEdit(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var edit model.Edit
+	var edit data_model.Edit
 	if err := h.DB.First(&edit, "idEdit = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "Edit not found",
@@ -761,39 +758,39 @@ func (h *EditHandler) GetEdit(c echo.Context) error {
 	return c.JSON(http.StatusOK, edit)
 }
 
-// struct of what we expect from front end with info to make rows in Interaction and Click
+// struct of what we expect from front end with info to make rows in Interaction, Edit, Suggestions, and EditSuggestion
 type createEditPayload struct {
-	IDInteractionType int64   `json:"IDInteractionType"`
-	IDEntryType       int64   `json:"IDEntryType"`
-	Mode              string  `json:"Mode"`           
-	IsCorrect         int64  `json:"IsCorrect"`        
+	IDInteractionType int64  `json:"IDInteractionType"`
+	IDEntryType       int64  `json:"IDEntryType"`
+	Mode              string `json:"Mode"`
+	IsCorrect         int64  `json:"IsCorrect"`
+
+	IDSuggestionType int64  `json:"IDSuggestionType"`
+	IDUniqueID       int64  `json:"IDUniqueID"`
+	Suggestion       string `json:"Suggestion"`
+	Active           int64  `json:"Active"`
 }
 
-// CreateEdit handles POST /api/edits
 func (h *EditHandler) CreateEdit(c echo.Context) error {
 	// read the cookie based session
-	sess, err := esession.Get("session", c)
+	sessionID, err := getCookieSessionID(c)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to read cookie session",
+		return c.JSON(http.StatusUnauthorized, echo.Map{
+			"error":  "failed to get active session",
 			"detail": err.Error(),
 		})
 	}
 
-	// extract session_id from cookie from whatever form it's in
-	var sessionID int64
-	if raw, ok := sess.Values["session_id"]; ok {
-		switch v := raw.(type) {
-		case int64:
-			sessionID = v
-		case int:
-			sessionID = int64(v)
-		case float64:
-			sessionID = int64(v)
-		}
+	// read the cookie based profile
+	profileID, err := getCookieProfileID(c)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, echo.Map{
+			"error":  "failed to get active profile",
+			"detail": err.Error(),
+		})
 	}
 
-	// bind request JSON filled with info for Interaction and Edit
+	// bind request JSON filled with info for Interaction, Edit, Suggestions, and EditSuggestion
 	var payload createEditPayload
 	if err := c.Bind(&payload); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
@@ -802,35 +799,132 @@ func (h *EditHandler) CreateEdit(c echo.Context) error {
 		})
 	}
 
-	// create Interaction using IDSession from cookie
-	interaction := model.Interaction{
-		IDSession:         sessionID,
-		IDInteractionType: payload.IDInteractionType,
-		// Timestamp is default
-	}
-	if err := h.DB.Create(&interaction).Error; err != nil {
+	// set up data models
+	var interaction data_model.Interaction
+	var edit data_model.Edit
+	var suggestion data_model.Suggestions
+	var editSuggestion data_model.EditSuggestion
+
+	err = h.DB.Transaction(func(tx *gorm.DB) error {
+		// find matching suggestions for a cell
+		var matchingSuggestions []data_model.Suggestions
+		if err := tx.
+			Where("idSuggestionType = ? AND idUniqueID = ?", payload.IDSuggestionType, payload.IDUniqueID).
+			Find(&matchingSuggestions).Error; err != nil {
+			return err
+		}
+
+		var isPrevSuggest int64 = 0
+		var isNew int64 = 1
+
+		// see if the suggestion in the payload matches any of the existing suggestions for that cell and change fields accordingly
+		for _, s := range matchingSuggestions {
+			if s.Suggestion == payload.Suggestion {
+				isPrevSuggest = 1
+				isNew = 0
+				break
+			}
+		}
+
+		var highestSuggestion data_model.Suggestions
+		var nextConfidence int64 = 1
+
+		// find the highest confidence suggestion for that cell
+		err := tx.
+			Where("idSuggestionType = ? AND idUniqueID = ?", payload.IDSuggestionType, payload.IDUniqueID).
+			Order("confidence DESC").
+			First(&highestSuggestion).Error
+
+		// make sure we got a suggestion and handle error if not
+		if err == nil {
+			// set next confidence to be 1 higher than the highest confidence so far for that cell
+			if highestSuggestion.Confidence != nil {
+				nextConfidence = *highestSuggestion.Confidence + 1
+			}
+
+			// if the new suggestion is active then set the currently highest confidence suggestion to be inactive
+			zero := int64(0)
+			if err := tx.Model(&data_model.Suggestions{}).
+				Where("idSuggestion = ?", highestSuggestion.IDSuggestion).
+				Update("active", zero).Error; err != nil {
+				return err
+			}
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		active := payload.Active
+
+		// make sure chosen aligns with active
+		var isChosen int64 = 0
+		if active == 1 {
+			isChosen = 1
+		}
+
+		confidence := nextConfidence
+
+		// create Interaction using IDSession from cookie
+		interaction = data_model.Interaction{
+			IDSession:         sessionID,
+			IDInteractionType: payload.IDInteractionType,
+		}
+		if err := tx.Create(&interaction).Error; err != nil {
+			return err
+		}
+
+		// create Edit linked to this Interaction
+		edit = data_model.Edit{
+			IDInteraction: interaction.IDInteraction,
+			IDEntryType:   payload.IDEntryType,
+			Mode:          payload.Mode,
+			IsCorrect:     payload.IsCorrect,
+		}
+		if err := tx.Create(&edit).Error; err != nil {
+			return err
+		}
+
+		// create Suggestion linked to this Edit and the profile from the cookie
+		suggestion = data_model.Suggestions{
+			IDSuggestionType: payload.IDSuggestionType,
+			IDUniqueID:       payload.IDUniqueID,
+			IDProfile:        profileID,
+			Suggestion:       payload.Suggestion,
+			Active:           &active,
+			Confidence:       &confidence,
+		}
+		if err := tx.Create(&suggestion).Error; err != nil {
+			return err
+		}
+
+		// create EditSuggestion linking the Edit and Suggestion
+		editSuggestion = data_model.EditSuggestion{
+			IDEdit:        edit.IDEdit,
+			IDSuggestion:  suggestion.IDSuggestion,
+			IsPrevSuggest: isPrevSuggest,
+			IsNew:         isNew,
+			IsChosen:      isChosen,
+		}
+		if err := tx.Create(&editSuggestion).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	// error handling for the transaction
+	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create interaction",
+			"error":  "failed to create edit flow",
 			"detail": err.Error(),
 		})
 	}
 
-	// create Edit linked to this Interaction
-	edit := model.Edit{
-		IDInteraction: interaction.IDInteraction,
-		IDEntryType:   payload.IDEntryType,
-		Mode:          payload.Mode,
-		IsCorrect:     payload.IsCorrect,
-	}
-	if err := h.DB.Create(&edit).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create edit",
-			"detail": err.Error(),
-		})
-	}
-
-	// return new row in edit
-	return c.JSON(http.StatusCreated, edit)
+	// return new rows in Edit, Suggestions, and EditSuggestion
+	return c.JSON(http.StatusCreated, echo.Map{
+		"edit":            edit,
+		"suggestion":      suggestion,
+		"edit_suggestion": editSuggestion,
+	})
 }
 
 // INTERACTIONTYPE HANDLER
@@ -851,7 +945,7 @@ func (h *InteractionTypeHandler) GetInteractionType(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var it model.InteractionType
+	var it data_model.InteractionType
 	if err := h.DB.First(&it, "idInteractionType = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "InteractionType not found",
@@ -866,7 +960,7 @@ func (h *InteractionTypeHandler) GetInteractionType(c echo.Context) error {
 // CreateInteractionType handles POST /api/interactiontypes
 func (h *InteractionTypeHandler) CreateInteractionType(c echo.Context) error {
 	// bind request JSON to InteractionType struct
-	var it model.InteractionType
+	var it data_model.InteractionType
 	if err := c.Bind(&it); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -898,13 +992,13 @@ func NewProfileHandler(db *gorm.DB) *ProfileHandler {
 	return &ProfileHandler{DB: db}
 }
 
-// GetProfile handles GET /api/profiles/:id
+// GetProfile handles GET /api/users/profiles/:id
 func (h *ProfileHandler) GetProfile(c echo.Context) error {
 	// lookup row by idProfile
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var profile model.Profile
+	var profile user_model.Profile
 	if err := h.DB.First(&profile, "idProfile = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "Profile not found",
@@ -916,10 +1010,10 @@ func (h *ProfileHandler) GetProfile(c echo.Context) error {
 	return c.JSON(http.StatusOK, profile)
 }
 
-// CreateProfile handles POST /api/profiles
+// CreateProfile handles POST /api/users/profiles
 func (h *ProfileHandler) CreateProfile(c echo.Context) error {
 	// bind request JSON to Profile struct
-	var profile model.Profile
+	var profile user_model.Profile
 	if err := c.Bind(&profile); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -957,7 +1051,7 @@ func (h *RemoveUserDataHandler) GetRemoveUserData(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var rud model.RemoveUserData
+	var rud data_model.RemoveUserData
 	if err := h.DB.First(&rud, "id_removeuserdata = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "RemoveUserData not found",
@@ -972,7 +1066,7 @@ func (h *RemoveUserDataHandler) GetRemoveUserData(c echo.Context) error {
 // CreateRemoveUserData handles POST /api/removeuserdata
 func (h *RemoveUserDataHandler) CreateRemoveUserData(c echo.Context) error {
 	// bind request JSON to RemoveUserData struct
-	var rud model.RemoveUserData
+	var rud data_model.RemoveUserData
 	if err := c.Bind(&rud); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1010,7 +1104,7 @@ func (h *RoleHandler) GetRole(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var role model.Role
+	var role data_model.Role
 	if err := h.DB.First(&role, "idRole = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "Role not found",
@@ -1025,7 +1119,7 @@ func (h *RoleHandler) GetRole(c echo.Context) error {
 // CreateRole handles POST /api/roles
 func (h *RoleHandler) CreateRole(c echo.Context) error {
 	// bind request JSON to Role struct
-	var role model.Role
+	var role data_model.Role
 	if err := c.Bind(&role); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1063,7 +1157,7 @@ func (h *SearchTypeHandler) GetSearchType(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var st model.SearchType
+	var st data_model.SearchType
 	if err := h.DB.First(&st, "idSearchType = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "SearchType not found",
@@ -1078,7 +1172,7 @@ func (h *SearchTypeHandler) GetSearchType(c echo.Context) error {
 // CreateSearchType handles POST /api/searchtypes
 func (h *SearchTypeHandler) CreateSearchType(c echo.Context) error {
 	// bind request JSON to SearchType struct
-	var st model.SearchType
+	var st data_model.SearchType
 	if err := c.Bind(&st); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1116,7 +1210,7 @@ func (h *SelectRangeHandler) GetSelectRange(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var sr model.SelectRange
+	var sr data_model.SelectRange
 	if err := h.DB.First(&sr, "idInteraction = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "SelectRange not found",
@@ -1131,7 +1225,7 @@ func (h *SelectRangeHandler) GetSelectRange(c echo.Context) error {
 // CreateSelectRange handles POST /api/selectranges
 func (h *SelectRangeHandler) CreateSelectRange(c echo.Context) error {
 	// bind request JSON to SelectRange struct
-	var sr model.SelectRange
+	var sr data_model.SelectRange
 	if err := c.Bind(&sr); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1163,28 +1257,41 @@ func NewSuggestionTypeHandler(db *gorm.DB) *SuggestionTypeHandler {
 	return &SuggestionTypeHandler{DB: db}
 }
 
-// GetSuggestionType handles GET /api/suggestiontypes/:id
+// GetSuggestionType handles GET /api/suggestiontypes/:name
 func (h *SuggestionTypeHandler) GetSuggestionType(c echo.Context) error {
-	// lookup row by idSuggestionType
-	id := c.Param("id")
+	// lookup row by name
+	name := c.Param("name")
 
-	// try to find the row and error if can't
-	var st model.SuggestionType
-	if err := h.DB.First(&st, "idSuggestionType = ?", id).Error; err != nil {
-		return c.JSON(http.StatusNotFound, echo.Map{
-			"error": "SuggestionType not found",
-			"id":    id,
+	// make sure name is provided
+	if name == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error": "name parameter is required",
 		})
 	}
 
-	// return the row
-	return c.JSON(http.StatusOK, st)
+	// try to find the row and error if can't
+	var st data_model.SuggestionType
+	if err := h.DB.
+		Select("idSuggestionType").
+		Where("LOWER(name) = LOWER(?)", name).
+		First(&st).Error; err != nil {
+
+		return c.JSON(http.StatusNotFound, echo.Map{
+			"error": "SuggestionType not found",
+			"name":  name,
+		})
+	}
+
+	// return the id of the row
+	return c.JSON(http.StatusOK, echo.Map{
+		"idSuggestionType": st.IDSuggestionType,
+	})
 }
 
 // CreateSuggestionType handles POST /api/suggestiontypes
 func (h *SuggestionTypeHandler) CreateSuggestionType(c echo.Context) error {
 	// bind request JSON to SuggestionType struct
-	var st model.SuggestionType
+	var st data_model.SuggestionType
 	if err := c.Bind(&st); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1203,7 +1310,7 @@ func (h *SuggestionTypeHandler) CreateSuggestionType(c echo.Context) error {
 	// return created row
 	return c.JSON(http.StatusCreated, st)
 }
- 
+
 // COPYCOLUMN HANDLER
 
 // CopyColumnHandler holds DB connection
@@ -1222,7 +1329,7 @@ func (h *CopyColumnHandler) GetCopyColumn(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var cc model.CopyColumn
+	var cc data_model.CopyColumn
 	if err := h.DB.First(&cc, "idInteraction = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "CopyColumn not found",
@@ -1237,7 +1344,7 @@ func (h *CopyColumnHandler) GetCopyColumn(c echo.Context) error {
 // CreateCopyColumn handles POST /api/copycolumns
 func (h *CopyColumnHandler) CreateCopyColumn(c echo.Context) error {
 	// bind request JSON to CopyColumn struct
-	var cc model.CopyColumn
+	var cc data_model.CopyColumn
 	if err := c.Bind(&cc); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1275,7 +1382,7 @@ func (h *SearchHandler) GetSearch(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var search model.Search
+	var search data_model.Search
 	if err := h.DB.First(&search, "idInteraction = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "Search not found",
@@ -1302,25 +1409,12 @@ type createSearchPayload struct {
 // CreateSearch handles POST /api/searches
 func (h *SearchHandler) CreateSearch(c echo.Context) error {
 	// read the cookie based session
-	sess, err := esession.Get("session", c)
+	sessionID, err := getCookieSessionID(c)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to read cookie session",
+		return c.JSON(http.StatusUnauthorized, echo.Map{
+			"error":  "failed to get active session",
 			"detail": err.Error(),
 		})
-	}
-
-	// extract session_id from cookie from whatever form it's in
-	var sessionID int64
-	if raw, ok := sess.Values["session_id"]; ok {
-		switch v := raw.(type) {
-		case int64:
-			sessionID = v
-		case int:
-			sessionID = int64(v)
-		case float64:
-			sessionID = int64(v)
-		}
 	}
 
 	// bind request JSON into payload
@@ -1333,7 +1427,7 @@ func (h *SearchHandler) CreateSearch(c echo.Context) error {
 	}
 
 	// create Interaction for this search
-	interaction := model.Interaction{
+	interaction := data_model.Interaction{
 		IDSession:         sessionID,
 		IDInteractionType: payload.IDInteractionType,
 		// Timestamp is defaulted in the db
@@ -1347,7 +1441,7 @@ func (h *SearchHandler) CreateSearch(c echo.Context) error {
 
 	// create Search linked to this Interaction
 	val := payload.Value
-	search := model.Search{
+	search := data_model.Search{
 		IDInteraction:    interaction.IDInteraction,
 		IDSuggestionType: payload.IDSuggestionType,
 		IDSearchType:     payload.IDSearchType,
@@ -1367,7 +1461,7 @@ func (h *SearchHandler) CreateSearch(c echo.Context) error {
 	// if IsMulti is true then create SearchMulti row
 	if payload.IsMulti != 0 {
 		smVal := payload.Value
-		searchMulti := model.SearchMulti{
+		searchMulti := data_model.SearchMulti{
 			IDInteraction:    interaction.IDInteraction,
 			IDSuggestionType: payload.IDSuggestionType,
 			IDSearchType:     payload.IDSearchType,
@@ -1403,7 +1497,7 @@ func (h *SearchMultiHandler) GetSearchMulti(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var sm model.SearchMulti
+	var sm data_model.SearchMulti
 	if err := h.DB.First(&sm, "idInteraction = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "SearchMulti not found",
@@ -1418,7 +1512,7 @@ func (h *SearchMultiHandler) GetSearchMulti(c echo.Context) error {
 // CreateSearchMulti handles POST /api/searchmultis
 func (h *SearchMultiHandler) CreateSearchMulti(c echo.Context) error {
 	// bind request JSON to SearchMulti struct
-	var sm model.SearchMulti
+	var sm data_model.SearchMulti
 	if err := c.Bind(&sm); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1456,7 +1550,7 @@ func (h *SortHandler) GetSort(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var sort model.Sort
+	var sort data_model.Sort
 	if err := h.DB.First(&sort, "idInteraction = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "Sort not found",
@@ -1471,7 +1565,7 @@ func (h *SortHandler) GetSort(c echo.Context) error {
 // CreateSort handles POST /api/sorts
 func (h *SortHandler) CreateSort(c echo.Context) error {
 	// bind request JSON to Sort struct
-	var sort model.Sort
+	var sort data_model.Sort
 	if err := c.Bind(&sort); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1505,26 +1599,37 @@ func NewSuggestionTypeValuesHandler(db *gorm.DB) *SuggestionTypeValuesHandler {
 
 // GetSuggestionTypeValues handles GET /api/suggestiontypevalues/:id
 func (h *SuggestionTypeValuesHandler) GetSuggestionTypeValues(c echo.Context) error {
-	// lookup row by idSuggestionType
+	// lookup rows by idSuggestionType
 	id := c.Param("id")
 
-	// try to find the row and error if can't
-	var stv model.SuggestionTypeValues
-	if err := h.DB.First(&stv, "idSuggestionType = ?", id).Error; err != nil {
-		return c.JSON(http.StatusNotFound, echo.Map{
-			"error": "SuggestionTypeValues not found",
-			"id":    id,
+	// make sure id is provided
+	if id == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error": "id parameter is required",
 		})
 	}
 
-	// return the row
-	return c.JSON(http.StatusOK, stv)
+	// find all active rows for this suggestion type
+	var stvs []data_model.SuggestionTypeValues
+	if err := h.DB.
+		Where("idSuggestionType = ? AND active = 1", id).
+		Order("value ASC").
+		Find(&stvs).Error; err != nil {
+
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":  "failed to fetch suggestion type values",
+			"detail": err.Error(),
+		})
+	}
+
+	// return matched rows
+	return c.JSON(http.StatusOK, stvs)
 }
 
 // CreateSuggestionTypeValues handles POST /api/suggestiontypevalues
 func (h *SuggestionTypeValuesHandler) CreateSuggestionTypeValues(c echo.Context) error {
 	// bind request JSON to SuggestionTypeValues struct
-	var stv model.SuggestionTypeValues
+	var stv data_model.SuggestionTypeValues
 	if err := c.Bind(&stv); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1562,7 +1667,7 @@ func (h *UniqueIdHandler) GetUniqueId(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var uid model.UniqueId
+	var uid data_model.UniqueId
 	if err := h.DB.First(&uid, "idUniqueID = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "UniqueId not found",
@@ -1577,7 +1682,7 @@ func (h *UniqueIdHandler) GetUniqueId(c echo.Context) error {
 // CreateUniqueId handles POST /api/uniqueids
 func (h *UniqueIdHandler) CreateUniqueId(c echo.Context) error {
 	// bind request JSON to UniqueId struct
-	var uid model.UniqueId
+	var uid data_model.UniqueId
 	if err := c.Bind(&uid); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1615,7 +1720,7 @@ func (h *CommentsHandler) GetComments(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var comment model.Comments
+	var comment data_model.Comments
 	if err := h.DB.First(&comment, "idComment = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "Comments not found",
@@ -1630,7 +1735,7 @@ func (h *CommentsHandler) GetComments(c echo.Context) error {
 // CreateComments handles POST /api/comments
 func (h *CommentsHandler) CreateComments(c echo.Context) error {
 	// bind request JSON to Comments struct
-	var comment model.Comments
+	var comment data_model.Comments
 	if err := c.Bind(&comment); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1668,7 +1773,7 @@ func (h *CommentVoteHandler) GetCommentVote(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var cv model.CommentVote
+	var cv data_model.CommentVote
 	if err := h.DB.First(&cv, "idCommentVote = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "CommentVote not found",
@@ -1683,7 +1788,7 @@ func (h *CommentVoteHandler) GetCommentVote(c echo.Context) error {
 // CreateCommentVote handles POST /api/commentvotes
 func (h *CommentVoteHandler) CreateCommentVote(c echo.Context) error {
 	// bind request JSON to CommentVote struct
-	var cv model.CommentVote
+	var cv data_model.CommentVote
 	if err := c.Bind(&cv); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1721,7 +1826,7 @@ func (h *CommentsViewHandler) GetCommentsView(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var cv model.CommentsView
+	var cv data_model.CommentsView
 	if err := h.DB.First(&cv, "idCommentsView = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "CommentsView not found",
@@ -1736,7 +1841,7 @@ func (h *CommentsViewHandler) GetCommentsView(c echo.Context) error {
 // CreateCommentsView handles POST /api/commentsviews
 func (h *CommentsViewHandler) CreateCommentsView(c echo.Context) error {
 	// bind request JSON to CommentsView struct
-	var cv model.CommentsView
+	var cv data_model.CommentsView
 	if err := c.Bind(&cv); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1774,7 +1879,7 @@ func (h *DatabaitsHandler) GetDatabaits(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var d model.Databaits
+	var d data_model.Databaits
 	if err := h.DB.First(&d, "idDatabait = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "Databaits not found",
@@ -1789,7 +1894,7 @@ func (h *DatabaitsHandler) GetDatabaits(c echo.Context) error {
 // CreateDatabaits handles POST /api/databaits
 func (h *DatabaitsHandler) CreateDatabaits(c echo.Context) error {
 	// bind request JSON to Databaits struct
-	var d model.Databaits
+	var d data_model.Databaits
 	if err := c.Bind(&d); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1827,7 +1932,7 @@ func (h *DatabaitVisitHandler) GetDatabaitVisit(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var dv model.DatabaitVisit
+	var dv data_model.DatabaitVisit
 	if err := h.DB.First(&dv, "idInteraction = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "DatabaitVisit not found",
@@ -1842,7 +1947,7 @@ func (h *DatabaitVisitHandler) GetDatabaitVisit(c echo.Context) error {
 // CreateDatabaitVisit handles POST /api/databaitvisits
 func (h *DatabaitVisitHandler) CreateDatabaitVisit(c echo.Context) error {
 	// bind request JSON to DatabaitVisit struct
-	var dv model.DatabaitVisit
+	var dv data_model.DatabaitVisit
 	if err := c.Bind(&dv); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -1880,7 +1985,7 @@ func (h *EditDelRowHandler) GetEditDelRow(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var edr model.EditDelRow
+	var edr data_model.EditDelRow
 	if err := h.DB.First(&edr, "idEdit = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "EditDelRow not found",
@@ -1894,35 +1999,23 @@ func (h *EditDelRowHandler) GetEditDelRow(c echo.Context) error {
 
 // struct of what we expect from front end with info to make rows in Interaction and Edit and EditDelRow
 type createEditDelRowPayload struct {
-	IDInteractionType int64   `json:"IDInteractionType"`
-	IDEntryType       int64   `json:"IDEntryType"`
-	Mode              string  `json:"Mode"`
-	IsCorrect         int64   `json:"IsCorrect"`
-	Comment           string  `json:"Comment"`
+	IDInteractionType int64  `json:"IDInteractionType"`
+	IDEntryType       int64  `json:"IDEntryType"`
+	Mode              string `json:"Mode"`
+	IsCorrect         int64  `json:"IsCorrect"`
+	IDUniqueID        int64  `json:"IDUniqueID"`
+	Comment           string `json:"Comment"`
 }
 
 // CreateEditDelRow handles POST /api/editdelrows
 func (h *EditDelRowHandler) CreateEditDelRow(c echo.Context) error {
 	// read the cookie based session
-	sess, err := esession.Get("session", c)
+	sessionID, err := getCookieSessionID(c)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to read cookie session",
+		return c.JSON(http.StatusUnauthorized, echo.Map{
+			"error":  "failed to get active session",
 			"detail": err.Error(),
 		})
-	}
-
-	// extract session_id from cookie from whatever form it's in
-	var sessionID int64
-	if raw, ok := sess.Values["session_id"]; ok {
-		switch v := raw.(type) {
-		case int64:
-			sessionID = v
-		case int:
-			sessionID = int64(v)
-		case float64:
-			sessionID = int64(v)
-		}
 	}
 
 	// bind request JSON filled with info for Interaction and Edit and EditDelRow
@@ -1934,60 +2027,88 @@ func (h *EditDelRowHandler) CreateEditDelRow(c echo.Context) error {
 		})
 	}
 
-	// create Interaction using IDSession from cookie
-	interaction := model.Interaction{
-		IDSession:         sessionID,
-		IDInteractionType: payload.IDInteractionType,
-		// Timestamp is default
-	}
-	if err := h.DB.Create(&interaction).Error; err != nil {
+	// set up data models
+	var interaction data_model.Interaction
+	var edit data_model.Edit
+	var edr data_model.EditDelRow
+
+	err = h.DB.Transaction(func(tx *gorm.DB) error {
+		// create Interaction using IDSession from cookie
+		interaction = data_model.Interaction{
+			IDSession:         sessionID,
+			IDInteractionType: payload.IDInteractionType,
+		}
+		if err := tx.Create(&interaction).Error; err != nil {
+			return err
+		}
+
+		// create Edit linked to this Interaction
+		edit = data_model.Edit{
+			IDInteraction: interaction.IDInteraction,
+			IDEntryType:   payload.IDEntryType,
+			Mode:          payload.Mode,
+			IsCorrect:     payload.IsCorrect,
+		}
+		if err := tx.Create(&edit).Error; err != nil {
+			return err
+		}
+
+		// find suggestion rows for this unique id
+		var suggestions []data_model.Suggestions
+		if err := tx.
+			Where("idUniqueID = ?", payload.IDUniqueID).
+			Find(&suggestions).Error; err != nil {
+			return err
+		}
+
+		// find the active one and set it to 0
+		for _, s := range suggestions {
+			if s.Active != nil && *s.Active == 1 {
+				zero := int64(0)
+				if err := tx.Model(&data_model.Suggestions{}).
+					Where("idSuggestion = ?", s.IDSuggestion).
+					Update("active", &zero).Error; err != nil {
+					return err
+				}
+				break
+			}
+		}
+
+		// deactivate the row itself in UniqueId
+		zero := int64(0)
+		if err := tx.Model(&data_model.UniqueId{}).
+			Where("idUniqueID = ?", payload.IDUniqueID).
+			Update("active", zero).Error; err != nil {
+			return err
+		}
+
+		// create EditDelRow linked to Edit and UniqueId
+		edr = data_model.EditDelRow{
+			IDEdit:     edit.IDEdit,
+			IDUniqueID: payload.IDUniqueID,
+			Comment:    payload.Comment,
+		}
+		if err := tx.Create(&edr).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	// error handling for the transaction
+	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create interaction",
+			"error":  "failed to create edit del row flow",
 			"detail": err.Error(),
 		})
 	}
 
-	// create Edit linked to this Interaction
-	edit := model.Edit{
-		IDInteraction: interaction.IDInteraction,
-		IDEntryType:   payload.IDEntryType,
-		Mode:          payload.Mode,
-		IsCorrect:     payload.IsCorrect,
-	}
-	if err := h.DB.Create(&edit).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create edit",
-			"detail": err.Error(),
-		})
-	}
-
-	// create a UniqueId row
-    newUnique := model.UniqueId{
-        Active: 1, 
-        Notes:  nil,
-    }
-    if err := h.DB.Create(&newUnique).Error; err != nil {
-        return c.JSON(http.StatusInternalServerError, echo.Map{
-            "error":  "failed to create unique id",
-            "detail": err.Error(),
-        })
-    }
-
-    // create EditDelRow linked to Edit and UniqueId
-    edr := model.EditDelRow{
-        IDEdit:     edit.IDEdit,
-        IDUniqueID: newUnique.IDUniqueID,
-        Comment:    payload.Comment,
-    }
-	if err := h.DB.Create(&edr).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create edit del row",
-			"detail": err.Error(),
-		})
-	}
-
-	// return new row in edit del row
-	return c.JSON(http.StatusCreated, edr)
+	// return created rows
+	return c.JSON(http.StatusCreated, echo.Map{
+		"interaction": interaction,
+		"edit":        edit,
+		"editdelrow":  edr,
+	})
 }
 
 // HELPUS HANDLER
@@ -2008,7 +2129,7 @@ func (h *HelpUsHandler) GetHelpUs(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var hu model.HelpUs
+	var hu data_model.HelpUs
 	if err := h.DB.First(&hu, "idHelpUs = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "HelpUs not found",
@@ -2023,7 +2144,7 @@ func (h *HelpUsHandler) GetHelpUs(c echo.Context) error {
 // CreateHelpUs handles POST /api/helpus
 func (h *HelpUsHandler) CreateHelpUs(c echo.Context) error {
 	// bind request JSON to HelpUs struct
-	var hu model.HelpUs
+	var hu data_model.HelpUs
 	if err := c.Bind(&hu); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -2061,7 +2182,7 @@ func (h *CopyHandler) GetCopy(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var copy model.Copy
+	var copy data_model.Copy
 	if err := h.DB.First(&copy, "idInteraction = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "Copy not found",
@@ -2076,7 +2197,7 @@ func (h *CopyHandler) GetCopy(c echo.Context) error {
 // CreateCopy handles POST /api/copies
 func (h *CopyHandler) CreateCopy(c echo.Context) error {
 	// bind request JSON to Copy struct
-	var copy model.Copy
+	var copy data_model.Copy
 	if err := c.Bind(&copy); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -2114,7 +2235,7 @@ func (h *EditNewRowHandler) GetEditNewRow(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var enr model.EditNewRow
+	var enr data_model.EditNewRow
 	if err := h.DB.First(&enr, "idEdit = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "EditNewRow not found",
@@ -2126,40 +2247,43 @@ func (h *EditNewRowHandler) GetEditNewRow(c echo.Context) error {
 	return c.JSON(http.StatusOK, enr)
 }
 
-// struct of what we expect from front end with info to make rows in Interaction and Edit and EditNewRow
+// struct of what we expect from front end with info to make rows in Interaction, Edit, many Suggestions, and EditNewRow
+type createEditNewRowCellPayload struct {
+	IDSuggestionType int64  `json:"IDSuggestionType"`
+	Suggestion       string `json:"Suggestion"`
+	Active           int64  `json:"Active"`
+	Confidence       int64  `json:"Confidence"`
+}
+
 type createEditNewRowPayload struct {
-	IDInteractionType int64   `json:"IDInteractionType"`
-	IDEntryType       int64   `json:"IDEntryType"`   
-	IDSuggestion      int64   `json:"IDSuggestion"`     
-	Mode              string  `json:"Mode"`       
-	IsCorrect         int64   `json:"IsCorrect"`         
+	IDInteractionType int64                         `json:"IDInteractionType"`
+	IDEntryType       int64                         `json:"IDEntryType"`
+	Mode              string                        `json:"Mode"`
+	IsCorrect         int64                         `json:"IsCorrect"`
+	Cells             []createEditNewRowCellPayload `json:"Cells"`
 }
 
 // CreateEditNewRow handles POST /api/editnewrows
 func (h *EditNewRowHandler) CreateEditNewRow(c echo.Context) error {
 	// read the cookie based session
-	sess, err := esession.Get("session", c)
+	sessionID, err := getCookieSessionID(c)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to read cookie session",
+		return c.JSON(http.StatusUnauthorized, echo.Map{
+			"error":  "failed to get active session",
 			"detail": err.Error(),
 		})
 	}
 
-	// extract session_id from cookie from whatever form it's in
-	var sessionID int64
-	if raw, ok := sess.Values["session_id"]; ok {
-		switch v := raw.(type) {
-		case int64:
-			sessionID = v
-		case int:
-			sessionID = int64(v)
-		case float64:
-			sessionID = int64(v)
-		}
+	// read the cookie based profile
+	profileID, err := getCookieProfileID(c)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, echo.Map{
+			"error":  "failed to get active profile",
+			"detail": err.Error(),
+		})
 	}
 
-	// bind request JSON filled with info for Interaction and Edit and EditNewRow
+	// bind request JSON filled with info for Interaction, Edit, Suggestions, and EditNewRow
 	var payload createEditNewRowPayload
 	if err := c.Bind(&payload); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
@@ -2168,48 +2292,100 @@ func (h *EditNewRowHandler) CreateEditNewRow(c echo.Context) error {
 		})
 	}
 
-	// create Interaction using IDSession from cookie
-	interaction := model.Interaction{
-		IDSession:         sessionID,
-		IDInteractionType: payload.IDInteractionType,
-		// Timestamp is default
+	// validate that at least one cell is provided
+	if len(payload.Cells) == 0 {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error": "at least one cell is required",
+		})
 	}
-	if err := h.DB.Create(&interaction).Error; err != nil {
+
+	// set up data models
+	var interaction data_model.Interaction
+	var edit data_model.Edit
+	var enr data_model.EditNewRow
+	var uid data_model.UniqueId
+	createdSuggestions := make([]data_model.Suggestions, 0, len(payload.Cells))
+
+	err = h.DB.Transaction(func(tx *gorm.DB) error {
+		// create the UniqueId row for this new row
+		notes := ""
+		uid = data_model.UniqueId{
+			Active: 1,
+			Notes:  &notes,
+		}
+		if err := tx.Create(&uid).Error; err != nil {
+			return err
+		}
+
+		// create Interaction using IDSession from cookie
+		interaction = data_model.Interaction{
+			IDSession:         sessionID,
+			IDInteractionType: payload.IDInteractionType,
+		}
+		if err := tx.Create(&interaction).Error; err != nil {
+			return err
+		}
+
+		// create Edit linked to this Interaction
+		edit = data_model.Edit{
+			IDInteraction: interaction.IDInteraction,
+			IDEntryType:   payload.IDEntryType,
+			Mode:          payload.Mode,
+			IsCorrect:     payload.IsCorrect,
+		}
+		if err := tx.Create(&edit).Error; err != nil {
+			return err
+		}
+
+		// create one Suggestion per cell
+		for _, cell := range payload.Cells {
+			active := cell.Active
+			confidence := cell.Confidence
+
+			suggestion := data_model.Suggestions{
+				IDSuggestionType: cell.IDSuggestionType,
+				IDUniqueID:       uid.IDUniqueID,
+				IDProfile:        profileID,
+				Suggestion:       cell.Suggestion,
+				Active:           &active,
+				Confidence:       &confidence,
+			}
+			if err := tx.Create(&suggestion).Error; err != nil {
+				return err
+			}
+
+			createdSuggestions = append(createdSuggestions, suggestion)
+		}
+
+		// create EditNewRow linked to this Edit and the first new Suggestion
+		enr = data_model.EditNewRow{
+			IDEdit:       edit.IDEdit,
+			IDSuggestion: createdSuggestions[0].IDSuggestion,
+			IsCorrect:    payload.IsCorrect,
+		}
+		if err := tx.Create(&enr).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	// error handling for the transaction
+	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create interaction",
+			"error":  "failed to create edit new row flow",
 			"detail": err.Error(),
 		})
 	}
 
-	// create Edit linked to this Interaction
-	edit := model.Edit{
-		IDInteraction: interaction.IDInteraction,
-		IDEntryType:   payload.IDEntryType,
-		Mode:          payload.Mode,
-		IsCorrect:     payload.IsCorrect,
-	}
-	if err := h.DB.Create(&edit).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create edit",
-			"detail": err.Error(),
-		})
-	}
-
-	// create EditNewRow linked to this Edit
-	enr := model.EditNewRow{
-		IDEdit:       edit.IDEdit,
-		IDSuggestion: payload.IDSuggestion,
-		IsCorrect:    payload.IsCorrect,
-	}
-	if err := h.DB.Create(&enr).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create edit new row",
-			"detail": err.Error(),
-		})
-	}
-
-	// return new row in edit new row
-	return c.JSON(http.StatusCreated, enr)
+	// return new rows in UniqueId, Edit, Suggestions, and EditNewRow
+	return c.JSON(http.StatusCreated, echo.Map{
+		"uniqueId":    uid,
+		"idUniqueID":  uid.IDUniqueID,
+		"edit":        edit,
+		"suggestions": createdSuggestions,
+		"editNewRow":  enr,
+	})
 }
 
 // PASTE HANDLER
@@ -2230,7 +2406,7 @@ func (h *PasteHandler) GetPaste(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var paste model.Paste
+	var paste data_model.Paste
 	if err := h.DB.First(&paste, "idInteraction = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "Paste not found",
@@ -2245,7 +2421,7 @@ func (h *PasteHandler) GetPaste(c echo.Context) error {
 // CreatePaste handles POST /api/pastes
 func (h *PasteHandler) CreatePaste(c echo.Context) error {
 	// bind request JSON to Paste struct
-	var paste model.Paste
+	var paste data_model.Paste
 	if err := c.Bind(&paste); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -2283,7 +2459,7 @@ func (h *SearchGoogleHandler) GetSearchGoogle(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var sg model.SearchGoogle
+	var sg data_model.SearchGoogle
 	if err := h.DB.First(&sg, "IdInteraction = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "SearchGoogle not found",
@@ -2298,7 +2474,7 @@ func (h *SearchGoogleHandler) GetSearchGoogle(c echo.Context) error {
 // CreateSearchGoogle handles POST /api/searchgoogles
 func (h *SearchGoogleHandler) CreateSearchGoogle(c echo.Context) error {
 	// bind request JSON to SearchGoogle struct
-	var sg model.SearchGoogle
+	var sg data_model.SearchGoogle
 	if err := c.Bind(&sg); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -2336,7 +2512,7 @@ func (h *ViewChangeHandler) GetViewChange(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var vc model.ViewChange
+	var vc data_model.ViewChange
 	if err := h.DB.First(&vc, "idInteraction = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "ViewChange not found",
@@ -2351,7 +2527,7 @@ func (h *ViewChangeHandler) GetViewChange(c echo.Context) error {
 // CreateViewChange handles POST /api/viewchanges
 func (h *ViewChangeHandler) CreateViewChange(c echo.Context) error {
 	// bind request JSON to ViewChange struct
-	var vc model.ViewChange
+	var vc data_model.ViewChange
 	if err := c.Bind(&vc); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -2389,7 +2565,7 @@ func (h *VisitHandler) GetVisit(c echo.Context) error {
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var visit model.Visit
+	var visit data_model.Visit
 	if err := h.DB.First(&visit, "idVisit = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
 			"error": "Visit not found",
@@ -2404,7 +2580,7 @@ func (h *VisitHandler) GetVisit(c echo.Context) error {
 // CreateVisit handles POST /api/visits
 func (h *VisitHandler) CreateVisit(c echo.Context) error {
 	// bind request JSON to Visit struct
-	var visit model.Visit
+	var visit data_model.Visit
 	if err := c.Bind(&visit); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":  "invalid request body",
@@ -2436,16 +2612,16 @@ func NewSessionsHandler(db *gorm.DB) *SessionsHandler {
 	return &SessionsHandler{DB: db}
 }
 
-// GetSessions handles GET /api/sessionsstore/:id
+// GetSessions handles GET /api/users/sessions/:id
 func (h *SessionsHandler) GetSessions(c echo.Context) error {
-	// lookup row by session_id
+	// lookup row by idSession
 	id := c.Param("id")
 
 	// try to find the row and error if can't
-	var s model.Sessions
-	if err := h.DB.First(&s, "session_id = ?", id).Error; err != nil {
+	var s user_model.Session
+	if err := h.DB.First(&s, "idSession = ?", id).Error; err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{
-			"error": "Sessions not found",
+			"error": "Session not found",
 			"id":    id,
 		})
 	}
@@ -2454,64 +2630,145 @@ func (h *SessionsHandler) GetSessions(c echo.Context) error {
 	return c.JSON(http.StatusOK, s)
 }
 
-// CreateSessions handles POST /api/sessionsstore
+// CreateSessions handles POST /api/users/sessions
 func (h *SessionsHandler) CreateSessions(c echo.Context) error {
-	// get cookie session via middleware
-	sess, err := esession.Get("session", c)
+	// get expiration time and current time for session management
+	const expiration = 20 * time.Minute
+	now := time.Now()
+
+	// read the cookie based session from middleware
+	cookieSession, err := esession.Get("session", c)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error": "failed to read cookie session",
 		})
 	}
 
-	// set cookie expiration to 20 minutes
-	const expiration = 20 * time.Minute
-
-	// set session options
-	sess.Options = &sessions.Options{
+	// set cookie options
+	cookieSession.Options = &sessions.Options{
 		Path:     "/",
 		MaxAge:   int(expiration.Seconds()),
 		HttpOnly: true,
 	}
 
-	// get current time
-	now := time.Now().Unix()
-
-	// try to reuse existing DB session
-	if val, ok := sess.Values["session_id"].(int64); ok && val != 0 {
-		var existing model.Sessions
-		if err := h.DB.First(&existing, "session_id = ?", val).Error; err == nil {
-			// check if expires time is in the future compared to now
-			if existing.Expires > now {
-				// if so return the existing one
-				return c.JSON(http.StatusOK, existing)
+	// first try to reuse existing session from cookie
+	var profile user_model.Profile
+	// use id_session from cookie
+	if sessionID, ok := getInt64(cookieSession.Values["id_session"]); ok && sessionID != 0 {
+		var existing user_model.Session
+		// see if session exists
+		if err := h.DB.First(&existing, "idSession = ?", sessionID).Error; err == nil {
+			// see if it's not expired yet
+			if now.Before(existing.End) {
+				// get profile for this session and return both
+				if err := h.DB.First(&profile, "idProfile = ?", existing.IDProfile).Error; err == nil {
+					return c.JSON(http.StatusOK, echo.Map{
+						"profile": profile,
+						"session": existing,
+					})
+				}
 			}
 		}
 	}
 
-	// create a new DB session
-	newSession := model.Sessions{
-		Expires: time.Now().Add(expiration).Unix(),
-		Data:    nil,
+	// second try to reuse existing profile from cookie, or create one
+	// use profile_id from cookie
+	if profileID, ok := getInt64(cookieSession.Values["profile_id"]); ok && profileID != 0 {
+		// see if profile exists
+		if err := h.DB.First(&profile, "idProfile = ?", profileID).Error; err != nil {
+			profile = user_model.Profile{}
+			// if profile doesn't exist then make a new one (old cookie)
+			if err := h.DB.Create(&profile).Error; err != nil {
+				return c.JSON(http.StatusInternalServerError, echo.Map{
+					"error":  "failed to create profile",
+					"detail": err.Error(),
+				})
+			}
+		}
+		// if no profile in cookie then make a new one (first time user)
+	} else {
+		profile = user_model.Profile{}
+		if err := h.DB.Create(&profile).Error; err != nil {
+			return c.JSON(http.StatusInternalServerError, echo.Map{
+				"error":  "failed to create profile",
+				"detail": err.Error(),
+			})
+		}
 	}
 
-	// try to add it to the DB
+	// third try to create new session with calculated end time
+	// create model instance with profile id and start and end time
+	newSession := user_model.Session{
+		IDProfile: profile.IDProfile,
+		Start:     now,
+		End:       now.Add(expiration),
+	}
+
+	// create the session in db and error if fail
 	if err := h.DB.Create(&newSession).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":  "failed to create DB session",
+			"error":  "failed to create session",
 			"detail": err.Error(),
 		})
 	}
 
-	// store new ID in cookie
-	sess.Values["session_id"] = newSession.SessionID
-	if err := sess.Save(c.Request(), c.Response()); err != nil {
+	// fourth try to save identifiers in cookie
+	cookieSession.Values["profile_id"] = profile.IDProfile
+	cookieSession.Values["id_session"] = newSession.IDSession
+
+	// save the cookie session and error if fail
+	if err := cookieSession.Save(c.Request(), c.Response()); err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error": "failed to save cookie session",
 		})
 	}
 
-	// return the new session
-	return c.JSON(http.StatusOK, newSession)
+	return c.JSON(http.StatusCreated, echo.Map{
+		"profile": profile,
+		"session": newSession,
+	})
 }
 
+// function to extract numerical IDs and convert to int64
+func getInt64(v interface{}) (int64, bool) {
+	switch val := v.(type) {
+	case int64:
+		return val, true
+	case int:
+		return int64(val), true
+	case int32:
+		return int64(val), true
+	case float64:
+		return int64(val), true
+	default:
+		return 0, false
+	}
+}
+
+func getCookieSessionID(c echo.Context) (int64, error) {
+	sess, err := esession.Get("session", c)
+	if err != nil {
+		return 0, err
+	}
+
+	sessionID, ok := getInt64(sess.Values["id_session"])
+	if !ok || sessionID == 0 {
+		return 0, echo.NewHTTPError(http.StatusUnauthorized, "no active session cookie")
+	}
+
+	return sessionID, nil
+}
+
+func getCookieProfileID(c echo.Context) (int64, error) {
+	sess, err := esession.Get("session", c)
+	if err != nil {
+		return 0, err
+	}
+
+	profileID, ok := getInt64(sess.Values["profile_id"])
+	if !ok || profileID == 0 {
+		return 0, echo.NewHTTPError(http.StatusUnauthorized, "no active profile cookie")
+	}
+
+	return profileID, nil
+}

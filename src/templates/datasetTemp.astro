@@ -1,0 +1,60 @@
+---
+import fs from 'fs';
+import path from 'path';
+import Papa from 'papaparse';
+
+const { dataset } = Astro.props;
+
+// const csvFile =
+//   dataset === "csprofs"
+//     ? "suggestions.csv"
+//     : "students.csv";
+
+const csvFile = "suggestions.csv";
+
+// 1. Read CSV
+const csvPath = path.resolve(`./public/${csvFile}`);
+const csvText = fs.readFileSync(csvPath, 'utf-8');
+
+// 2. Parse CSV with types (assuming has idUniqueID column)
+type Row = {
+  idUniqueID: string;
+  [key: string]: string;
+};
+
+const parsed = Papa.parse<Row>(csvText, {
+  header: true,
+  skipEmptyLines: true,
+});
+
+const rows = parsed.data;
+const columnNames = parsed.meta.fields?.filter(f => f !== 'idUniqueID') ?? [];
+
+// 3. Group by idUniqueID
+const grouped = new Map<string, Row[]>();
+for (const row of rows) {
+  const id = row.idUniqueID;
+
+  if (!grouped.has(id)) {
+    grouped.set(id, []);
+  }
+
+  grouped.get(id)!.push(row);
+  
+}
+---
+
+<template id="table-data">
+  <tbody>
+    {Array.from(grouped.entries()).map(([uniqueId, group], rowIndex) => {
+
+      return (
+        <tr data-id={rowIndex} data-identifier={uniqueId}>
+          {columnNames.map((col) => (
+            <td data-col={group[0]?.[col] ?? ""}></td>
+          ))}
+        </tr>
+      );
+    })}
+  </tbody>
+</template>
