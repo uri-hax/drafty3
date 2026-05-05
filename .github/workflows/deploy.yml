@@ -11,8 +11,13 @@ permissions:
   id-token: write
 
 jobs:
-  build:
+   build:
     runs-on: ubuntu-latest
+    environment: github-pages
+
+    env:
+      VITE_PUBLIC_API_BASE: ${{ vars.VITE_PUBLIC_API_BASE }}
+      VITE_PUBLIC_BASE_PATH: ${{ vars.VITE_PUBLIC_BASE_PATH }}
 
     steps:
       - uses: actions/checkout@v4
