@@ -9,8 +9,8 @@ export function getAPI(): string {
     .split("/")
     .filter(Boolean)[0];
 
-  const localApiBase = (import.meta.env.VITE_PUBLIC_LOCAL_DEV_API || "").replace(/\/$/, "");
-  const apiBase = (import.meta.env.VITE_PUBLIC_API_BASE || "").replace(/\/$/, "");
+  const localApiBase = (import.meta.env.PUBLIC_LOCAL_DEV_API || "").replace(/\/$/, "");
+  const apiBase = (import.meta.env.PUBLIC_API_BASE || "").replace(/\/$/, "");
 
   if (hostname === "localhost") {
     return `${localApiBase}/${dataset}`;
@@ -18,7 +18,7 @@ export function getAPI(): string {
 
   if (
     hostname === "uri-hax.github.io" &&
-    pathname.startsWith(import.meta.env.VITE_PUBLIC_BASE_PATH)
+    pathname.startsWith(import.meta.env.PUBLIC_BASE_PATH)
   ) {
     return `${apiBase}/${dataset}`;
   }
@@ -31,8 +31,8 @@ export function getUsersAPI(): string {
 
   const { hostname, pathname } = window.location;
 
-  const localApiBase = (import.meta.env.VITE_PUBLIC_LOCAL_DEV_API || "").replace(/\/$/, "");
-  const apiBase = (import.meta.env.VITE_PUBLIC_API_BASE || "").replace(/\/$/, "");
+  const localApiBase = (import.meta.env.PUBLIC_LOCAL_DEV_API || "").replace(/\/$/, "");
+  const apiBase = (import.meta.env.PUBLIC_API_BASE || "").replace(/\/$/, "");
 
   if (hostname === "localhost") {
     return `${localApiBase}/users`;
@@ -40,7 +40,7 @@ export function getUsersAPI(): string {
 
   if (
     hostname === "uri-hax.github.io" &&
-    pathname.startsWith(import.meta.env.VITE_PUBLIC_BASE_PATH)
+    pathname.startsWith(import.meta.env.PUBLIC_BASE_PATH)
   ) {
     return `${apiBase}/users`;
   }
