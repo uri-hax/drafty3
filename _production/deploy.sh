@@ -19,7 +19,7 @@ go build -o drafty-backend
 mv drafty-backend /vol/drafty3/bin
 
 echo "...installing systemd service files from cwd"
-cp "$SCRIPT_DIR/$BACKEND_SERVICE" /etc/systemd/system/
+cp "$SCRIPT_DIR/systemd/$BACKEND_SERVICE" /etc/systemd/system/
 
 echo "...reloading systemd"
 systemctl daemon-reload
