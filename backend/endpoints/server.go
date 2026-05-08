@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +17,36 @@ import (
 
 	"drafty3/endpoints/handler"
 )
+
+// Source - https://stackoverflow.com/a/10510783
+// Posted by Mostafa, modified by community. See post 'Timeline' for change history
+// Retrieved 2026-05-08, License - CC BY-SA 4.0
+
+func pathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	return false, err
+}
+
+func resolveDdPath(key string) string {
+	var devDbPath string = "../db"
+	var prodDbPath string = "/vol/drafty3/backend/db"
+
+	dbRoot := os.Getenv(key)
+	if dbRoot == "" {
+		prodDbPathExists, _ := pathExists(prodDbPath)
+		if prodDbPathExists {
+			return prodDbPath
+		}
+		return devDbPath
+	}
+	return dbRoot
+}
 
 // students test db and routes currently disabled
 
@@ -258,27 +290,9 @@ func main() {
 	}))
 
 	// get db paths from environment variables or use defaults
-	dbRoot := os.Getenv("DB_ROOT")
-	if dbRoot == "" {
-		dbRoot = "../db"
-	}
-
-	// get db paths from environment variables or use defaults
-	csprofsPath := os.Getenv("DB_PATH_CSPROFS")
-	if csprofsPath == "" {
-		csprofsPath = filepath.Join(dbRoot, "drafty_new_gorm.db")
-	}
-
-	// studentsPath := os.Getenv("DB_PATH_STUDENTS")
-	// if studentsPath == "" {
-	// 	studentsPath = filepath.Join(dbRoot, "students_gorm.db")
-	// }
-
-	// get db paths from environment variables or use defaults
-	usersPath := os.Getenv("DB_PATH_USERS")
-	if usersPath == "" {
-		usersPath = filepath.Join(dbRoot, "users_gorm.db")
-	}
+	// dbRoot := resolveDdPath("DB_ROOT")
+	csprofsPath := filepath.Join(resolveDdPath("DB_PATH_CSPROFS"), "drafty_new_gorm.db")
+	usersPath := filepath.Join(resolveDdPath("DB_PATH_USERS"), "users_gorm.db")
 
 	// connect to db using gorm
 	dbCsprofs, err := gorm.Open(sqlite.Open(csprofsPath), &gorm.Config{})
