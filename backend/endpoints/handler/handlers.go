@@ -167,7 +167,6 @@ type createClickPayload struct {
 
 // CreateClick handles POST /api/clicks
 func (h *ClickHandler) CreateClick(c echo.Context) error {
-	log.Println("LOGGING:: CreateClick HIT")
 
 	// read the cookie based session
 	sessionID, err := getCookieSessionID(c)
@@ -186,8 +185,6 @@ func (h *ClickHandler) CreateClick(c echo.Context) error {
 			"detail": err.Error(),
 		})
 	}
-
-	log.Printf("payload: %+v", payload)
 
 	// set up data models
 	var interaction data_model.Interaction
@@ -232,6 +229,7 @@ func (h *ClickHandler) CreateClick(c echo.Context) error {
 			RowValues:     payload.RowValues,
 		}
 		if err := tx.Create(&click).Error; err != nil {
+			log.Printf("click db error:", err)
 			return err
 		}
 
@@ -240,6 +238,7 @@ func (h *ClickHandler) CreateClick(c echo.Context) error {
 
 	// error handling for the transaction
 	if err != nil {
+		log.Printf("click error:", err)
 		if httpErr, ok := err.(*echo.HTTPError); ok {
 			return c.JSON(httpErr.Code, echo.Map{
 				"error": httpErr.Message,
