@@ -2644,11 +2644,20 @@ func (h *SessionsHandler) CreateSessions(c echo.Context) error {
 		})
 	}
 
-	// set cookie options
+	// set cookie options - OLD
+	//cookieSession.Options = &sessions.Options{
+	//	Path:     "/",
+	//	MaxAge:   int(expiration.Seconds()),
+	//	HttpOnly: true,
+	//}
+
+	// set cookie options - NEW
 	cookieSession.Options = &sessions.Options{
 		Path:     "/",
 		MaxAge:   int(expiration.Seconds()),
 		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
 	}
 
 	// first try to reuse existing session from cookie
