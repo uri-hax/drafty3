@@ -331,4 +331,8 @@ func main() {
 	// start the server and log failures
 	log.Println("Server running on http://localhost:8081")
 	e.Logger.Fatal(e.Start(":8081"))
+
+	for _, r := range e.Routes() {
+		log.Println(r.Method, r.Path)
+	}
 }
