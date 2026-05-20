@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -166,6 +167,8 @@ type createClickPayload struct {
 
 // CreateClick handles POST /api/clicks
 func (h *ClickHandler) CreateClick(c echo.Context) error {
+	log.Println("LOGGING:: CreateClick HIT")
+
 	// read the cookie based session
 	sessionID, err := getCookieSessionID(c)
 	if err != nil {
@@ -183,6 +186,8 @@ func (h *ClickHandler) CreateClick(c echo.Context) error {
 			"detail": err.Error(),
 		})
 	}
+
+	log.Printf("payload: %+v", payload)
 
 	// set up data models
 	var interaction data_model.Interaction

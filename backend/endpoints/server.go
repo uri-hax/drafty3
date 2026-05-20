@@ -52,7 +52,6 @@ func resolveDdPath(key string) string {
 
 // create all api routes for main db and handlers for those routes
 func registerRoutes(api *echo.Group, db *gorm.DB) {
-	log.Println("ENTERED registerRoutes")
 	// create handlers with dataset db
 	suggestionsHandler := handler.NewSuggestionsHandler(db)
 	aliasHandler := handler.NewAliasHandler(db)
@@ -93,7 +92,7 @@ func registerRoutes(api *echo.Group, db *gorm.DB) {
 	viewChangeHandler := handler.NewViewChangeHandler(db)
 	visitHandler := handler.NewVisitHandler(db)
 
-	log.Println("starting api routes...")
+	log.Println("ENTERED registerRoutes")
 
 	// Health
 	api.GET("/health", handler.HealthCheck)
@@ -107,10 +106,8 @@ func registerRoutes(api *echo.Group, db *gorm.DB) {
 	api.POST("/alias", aliasHandler.CreateAlias)
 
 	// Click
-	log.Println("before click routes register")
 	api.GET("/clicks/:id", clickHandler.GetClick)
 	api.POST("/clicks", clickHandler.CreateClick)
-	log.Println("after click routes register")
 
 	// DataType
 	api.GET("/datatypes/:id", dataTypeHandler.GetDataType)
@@ -251,8 +248,6 @@ func registerRoutes(api *echo.Group, db *gorm.DB) {
 	// Visit
 	api.GET("/visits/:id", visitHandler.GetVisit)
 	api.POST("/visits", visitHandler.CreateVisit)
-
-	log.Println("END register routes")
 }
 
 // create all api routes for users db and handlers for those routes
