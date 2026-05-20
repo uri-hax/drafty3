@@ -266,7 +266,16 @@ func main() {
 	e := echo.New()
 
 	// set up session middleware with cookie store and a temporary secret key
-	e.Use(esession.Middleware(sessions.NewCookieStore([]byte("temp_secret_key"))))
+	store := sessions.NewCookieStore([]byte("temp_secret_key2"))
+
+	store.Options = &sessions.Options{
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+	}
+
+	e.Use(esession.Middleware(store))
 
 	// add testing environment and live site CORS policy
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
